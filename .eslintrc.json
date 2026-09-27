@@ -1,3 +1,19 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["src/**/*.{ts,tsx,js,jsx,mjs}"],
+      "excludedFiles": ["src/lib/config.ts", "src/lib/env-schema.mjs", "**/*.test.*"],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "process",
+            "property": "env",
+            "message": "Read configuration from `config` in src/lib/config.ts (see docs/configuration.md)."
+          }
+        ]
+      }
+    }
+  ]
 }

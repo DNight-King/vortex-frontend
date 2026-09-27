@@ -82,6 +82,7 @@ npm run dev    # http://localhost:3000
 | `NEXT_PUBLIC_NETWORK`                  | Stellar network: `testnet`, `futurenet`, or `mainnet`         |
 | `NEXT_PUBLIC_SETTLEMENT_CONTRACT`      | Settlement contract ID from `vortex-contract` deployment      |
 | `NEXT_PUBLIC_SOLVER_REGISTRY_CONTRACT` | Solver registry contract ID from `vortex-contract` deployment |
+| `NEXT_PUBLIC_SITE_URL`                 | Canonical site origin, used for absolute Open Graph image URLs |
 
 ---
 
@@ -154,7 +155,7 @@ If preview-specific variables are not set, the workflow uses sensible defaults p
 | `npm run start`              | Serve production build locally                                    |
 | `npm run lint`               | Run ESLint across codebase                                        |
 | `npm run check:editorconfig` | Verify formatting consistency with `.editorconfig`                |
-| `npm run check:env`          | Validate that all referenced environment variables are documented |
+| `npm run check:env`          | Check env vars, `.env.example` and this README against `src/lib/env-schema.mjs` |
 | `npm run check:i18n`         | Check that every locale catalog has the same keys                 |
 | `npm run check:manifest`     | Fail on duplicate `package.json` keys or npm scripts that are referenced but not defined |
 | `npm run typecheck`          | Run strict TypeScript typechecking (`tsc --noEmit`)               |

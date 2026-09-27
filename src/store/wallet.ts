@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import freighterApi from "@stellar/freighter-api";
+import { config } from "@/lib/config";
 
 export type WalletErrorKey =
   "wallet.error.freighterUnavailable" | "wallet.error.connectFailed";
@@ -16,9 +17,7 @@ export type PersistedWalletState = {
 export const PERSIST_KEY = "vortex-wallet";
 
 /** The network name the app expects, normalised to upper-case for comparison. */
-const EXPECTED_NETWORK = (
-  process.env["NEXT_PUBLIC_NETWORK"] ?? "testnet"
-).toUpperCase();
+const EXPECTED_NETWORK = config.network.toUpperCase();
 
 function isValidPersistedState(state: unknown): state is {
   address: string | null;

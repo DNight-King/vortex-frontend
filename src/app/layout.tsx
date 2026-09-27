@@ -5,6 +5,7 @@ import { ToastViewport } from "@/components/ToastViewport";
 import { IntentStatusWatcher } from "@/components/IntentStatusWatcher";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
+import { config } from "@/lib/config";
 
 const TITLE = "Vortex | Cross-chain Swaps via Stellar";
 const DESCRIPTION =
@@ -12,9 +13,7 @@ const DESCRIPTION =
 
 // The canonical site URL — used in absolute OG image URLs.
 // Falls back to localhost for local dev; set NEXT_PUBLIC_SITE_URL in production.
-const SITE_URL =
-  process.env["NEXT_PUBLIC_SITE_URL"]?.replace(/\/$/, "") ??
-  "http://localhost:3000";
+const SITE_URL = config.siteUrl;
 
 export const metadata: Metadata = {
   title: { default: TITLE, template: "%s | Vortex" },

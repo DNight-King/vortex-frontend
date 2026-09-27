@@ -3,8 +3,9 @@ import { usePathname } from "next/navigation";
 import { useWebSocket } from "./useWebSocket";
 import { useToastStore } from "@/store/toast";
 import type { FeedItem } from "@/lib/types";
+import { config } from "@/lib/config";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? null;
+const WS_URL = config.wsUrl;
 const BATCH_WINDOW_MS = 1000;
 
 // Lighter-weight than useMyLiveIntents: it only observes the WebSocket feed to

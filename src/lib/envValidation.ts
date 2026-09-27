@@ -6,17 +6,8 @@
  * a sensitive value was accidentally prefixed with NEXT_PUBLIC_.
  */
 
-const SUSPICIOUS_PATTERNS = [
-  /secret/i,
-  /key/i,
-  /token/i,
-  /password/i,
-  /private/i,
-  /api_?key/i,
-  /bearer/i,
-  /credential/i,
-  /auth/i,
-];
+// Shared with scripts/check-env-vars.mjs, which runs this check at build time.
+import { SUSPICIOUS_PATTERNS } from "./env-schema.mjs";
 
 export interface EnvValidationError {
   variable: string;

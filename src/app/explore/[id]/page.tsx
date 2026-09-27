@@ -13,8 +13,9 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIntent } from "@/hooks/useIntent";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
+import { config } from "@/lib/config";
 
-const NETWORK = process.env["NEXT_PUBLIC_NETWORK"] ?? "testnet";
+const NETWORK = config.network;
 
 // This screen shows 6-and-6 truncation for full-width identifiers.
 const truncate = (value: string) => truncateAddress(value, { prefix: 6, suffix: 6 });

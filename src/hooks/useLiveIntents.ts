@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useIntents } from "./useIntents";
 import { useWebSocket } from "./useWebSocket";
 import type { FeedItem } from "@/lib/types";
+import { config } from "@/lib/config";
 
 const MAX_ITEMS = 200;
-const WS_URL = process.env["NEXT_PUBLIC_WS_URL"] ?? null;
+const WS_URL = config.wsUrl;
 
 function mergeById(items: FeedItem[]): FeedItem[] {
   const seen = new Set<string>();

@@ -33,8 +33,8 @@ flag derived from the WebSocket's `status === "open"`. If you need a third feed
 of this kind, follow this pattern (REST hook via SWR + `useWebSocket` + local
 merge-by-id state) rather than inventing a new one.
 
-The WebSocket URL for all of these is
-`process.env.NEXT_PUBLIC_WS_URL`, and `useWebSocket(null)` is the deliberate way
+The WebSocket URL for all of these is `config.wsUrl` from `src/lib/config.ts`
+(`NEXT_PUBLIC_WS_URL`, or `null` when unset), and `useWebSocket(null)` is the deliberate way
 to stay idle (e.g. when that env var is unset) — it tears down any existing
 connection and reports `status: "closed"` without attempting to connect.
 
