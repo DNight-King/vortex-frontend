@@ -91,17 +91,24 @@ export function sanitizeText(input: string, maxLength: number = 500): string {
   return sanitizeDisplayText(input).trim().slice(0, maxLength);
 }
 
-/** Rejects empty / whitespace-only comments and ones over `maxLength`. */
+/**
+ * Rejects empty / whitespace-only comments and ones over `maxLength`.
+ * `reason` lets the UI show a translated message; `error` is the English text.
+ */
 export function validateCommentText(
   text: string,
   maxLength: number = 500,
-): { valid: boolean; error?: string } {
+): { valid: true } | { valid: false; reason: "empty" | "tooLong"; error: string } {
   const trimmed = text.trim();
   if (!trimmed) {
-    return { valid: false, error: "Comment text cannot be empty or whitespace only." };
+    return { valid: false, reason: "empty", error: "Comment text cannot be empty or whitespace only." };
   }
   if (trimmed.length > maxLength) {
-    return { valid: false, error: `Comment exceeds maximum length of ${maxLength} characters.` };
+    return {
+      valid: false,
+      reason: "tooLong",
+      error: `Comment exceeds maximum length of ${maxLength} characters.`,
+    };
   }
   return { valid: true };
 }

@@ -42,6 +42,7 @@ function QuoteDelta({
   format: (n: number) => string;
   label: string;
 }) {
+  const { t } = useTranslation();
   if (value === 0) return null;
   const isUp = value > 0;
   const isGood = betterWhenHigher ? isUp : !isUp;
@@ -54,7 +55,10 @@ function QuoteDelta({
       <span aria-hidden="true">{isUp ? "▲" : "▼"}</span>
       <span aria-hidden="true">{format(Math.abs(value))}</span>
       <span className="sr-only">
-        {label} {isGood ? "improved" : "worsened"} by {format(Math.abs(value))} on the latest quote
+        {t(isGood ? "swap.quote.delta.improved" : "swap.quote.delta.worsened", {
+          label,
+          amount: format(Math.abs(value)),
+        })}
       </span>
     </span>
   );

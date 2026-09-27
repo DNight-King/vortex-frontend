@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
+import { getTranslation } from "@/lib/i18n/server";
 import { config } from "@/lib/config";
 
 const TITLE = "Vortex | Cross-chain Swaps via Stellar";
@@ -96,14 +97,15 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { t, locale } = getTranslation();
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className="antialiased">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-3 focus:py-2 focus:rounded-lg focus:bg-vx-card focus:text-vx-text focus:border focus:border-vx-sage/40"
         >
-          Skip to main content
+          {t("layout.skipToContent")}
         </a>
         <I18nProvider locale={DEFAULT_LOCALE}>
           <GlobalErrorCapture />

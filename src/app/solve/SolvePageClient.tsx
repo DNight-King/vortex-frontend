@@ -40,6 +40,13 @@ const REGISTRATION_LABEL_KEY: Partial<Record<SolverRegistrationStatus, MessageKe
 type SortKey = "fills" | "volumeUsd" | "avgFillTimeSeconds" | "successRatePct";
 type SortDir = "asc" | "desc" | "none";
 
+const SORT_COLUMNS: [SortKey, MessageKey][] = [
+  ["fills", "solve.leaderboard.fills"],
+  ["volumeUsd", "solve.leaderboard.volume"],
+  ["avgFillTimeSeconds", "solve.leaderboard.avgTime"],
+  ["successRatePct", "solve.leaderboard.success"],
+];
+
 /** Shape of the persisted registration draft. */
 type RegistrationDraft = {
   address: string;
@@ -268,13 +275,9 @@ export default function SolvePageClient() {
                 <span className="text-sm font-semibold text-vx-text">
                   {t("solve.leaderboard.title")}
                 </span>
-                <div className="hidden sm:flex items-center gap-1" role="group" aria-label="Sort leaderboard">
-                  {([
-                    ["fills",                "Fills"],
-                    ["volumeUsd",            "Volume"],
-                    ["avgFillTimeSeconds",   "Avg Time"],
-                    ["successRatePct",       "Success %"],
-                  ] as [SortKey, string][]).map(([key, label]) => {
+                <div className="hidden sm:flex items-center gap-1" role="group" aria-label={t("solve.leaderboard.sortGroup")}>
+                  {SORT_COLUMNS.map(([key, labelKey]) => {
+                    const label = t(labelKey);
                     const isActive = sortKey === key && sortDir !== "none";
                     const ariaSortValue: "ascending" | "descending" | "none" =
                       sortKey === key && sortDir !== "none"
@@ -286,11 +289,14 @@ export default function SolvePageClient() {
                         type="button"
                         onClick={() => handleSort(key)}
                         aria-sort={ariaSortValue}
-                        aria-label={`Sort by ${label}${
-                          sortKey === key && sortDir !== "none"
-                            ? sortDir === "asc" ? ", ascending" : ", descending"
-                            : ""
-                        }`}
+                        aria-label={t(
+                          sortKey === key && sortDir === "asc"
+                            ? "solve.leaderboard.sortByAscending"
+                            : sortKey === key && sortDir === "desc"
+                              ? "solve.leaderboard.sortByDescending"
+                              : "solve.leaderboard.sortBy",
+                          { column: label },
+                        )}
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors
                           ${
                             isActive
@@ -306,13 +312,9 @@ export default function SolvePageClient() {
                 </div>
               </div>
               {/* Mobile sort: compact dropdown alternative */}
-              <div className="flex sm:hidden items-center gap-1 mt-2 flex-wrap" role="group" aria-label="Sort leaderboard">
-                {([
-                  ["fills",                "Fills"],
-                  ["volumeUsd",            "Volume"],
-                  ["avgFillTimeSeconds",   "Avg Time"],
-                  ["successRatePct",       "Success %"],
-                ] as [SortKey, string][]).map(([key, label]) => {
+              <div className="flex sm:hidden items-center gap-1 mt-2 flex-wrap" role="group" aria-label={t("solve.leaderboard.sortGroup")}>
+                {SORT_COLUMNS.map(([key, labelKey]) => {
+                  const label = t(labelKey);
                   const isActive = sortKey === key && sortDir !== "none";
                   const ariaSortValue: "ascending" | "descending" | "none" =
                     sortKey === key && sortDir !== "none"
@@ -476,7 +478,11 @@ export default function SolvePageClient() {
                         {t("solve.intents.id", { id: intent.id })}
                       </div>
                       <div className="text-sm font-medium text-vx-text capitalize">
-                        {intent.srcAmount} {intent.srcToken} on {intent.srcChain}
+                        {t("solve.intents.route", {
+                          amount: intent.srcAmount,
+                          token: intent.srcToken,
+                          chain: intent.srcChain,
+                        })}
                       </div>
                       <div className="text-xs text-vx-muted">
                         {t("solve.intents.details", {

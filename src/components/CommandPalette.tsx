@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isValidStellarPublicKey } from "@/lib/stellarAddress";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+import type { MessageKey, Translator } from "@/lib/i18n";
 
 // === Static navigation targets
 // The four top-level routes the palette can jump to. Keeping this list here
@@ -15,11 +17,12 @@ type Command = {
   href: string;
 };
 
-const ROUTE_COMMANDS: Command[] = [
-  { id: "route-home", label: "Swap", hint: "Home", href: "/" },
-  { id: "route-explore", label: "Explore intents", hint: "/explore", href: "/explore" },
-  { id: "route-solve", label: "Become a solver", hint: "/solve", href: "/solve" },
-  { id: "route-my-intents", label: "My Intents", hint: "/my-intents", href: "/my-intents" },
+// Labels are catalog keys, so matching and display follow the active locale.
+const ROUTE_COMMANDS: { id: string; label: MessageKey; hint: MessageKey | string; href: string }[] = [
+  { id: "route-home", label: "commandPalette.route.home", hint: "commandPalette.route.homeHint", href: "/" },
+  { id: "route-explore", label: "commandPalette.route.explore", hint: "/explore", href: "/explore" },
+  { id: "route-solve", label: "commandPalette.route.solve", hint: "/solve", href: "/solve" },
+  { id: "route-my-intents", label: "commandPalette.route.myIntents", hint: "/my-intents", href: "/my-intents" },
 ];
 
 // An intent id in this app is an opaque short string; treat any whitespace-free
@@ -30,11 +33,15 @@ function truncateMiddle(value: string): string {
   return value.length <= 14 ? value : `${value.slice(0, 6)}…${value.slice(-6)}`;
 }
 
-function buildCommands(query: string): Command[] {
+function buildCommands(query: string, t: Translator): Command[] {
   const trimmed = query.trim();
   const lower = trimmed.toLowerCase();
 
-  const routes = ROUTE_COMMANDS.filter(
+  const routes = ROUTE_COMMANDS.map((command) => ({
+    ...command,
+    label: t(command.label),
+    hint: command.hint.startsWith("/") ? command.hint : t(command.hint as MessageKey),
+  })).filter(
     (command) =>
       lower.length === 0 ||
       command.label.toLowerCase().includes(lower) ||
@@ -47,8 +54,8 @@ function buildCommands(query: string): Command[] {
   if (isValidStellarPublicKey(trimmed)) {
     lookups.push({
       id: "lookup-solver",
-      label: `Go to solver ${truncateMiddle(trimmed)}`,
-      hint: "Solver",
+      label: t("commandPalette.lookup.solver", { address: truncateMiddle(trimmed) }),
+      hint: t("commandPalette.lookup.solverHint"),
       href: `/solve/${trimmed}`,
     });
   } else if (
@@ -61,8 +68,8 @@ function buildCommands(query: string): Command[] {
     // "Open intent solve" row alongside the real route match.
     lookups.push({
       id: "lookup-intent",
-      label: `Open intent ${truncateMiddle(trimmed)}`,
-      hint: "Intent",
+      label: t("commandPalette.lookup.intent", { id: truncateMiddle(trimmed) }),
+      hint: t("commandPalette.lookup.intentHint"),
       href: `/explore/${trimmed}`,
     });
   }
@@ -71,6 +78,7 @@ function buildCommands(query: string): Command[] {
 }
 
 export function CommandPalette() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -81,7 +89,7 @@ export function CommandPalette() {
   // The element focused before the palette opened, so focus can be restored on close.
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  const commands = useMemo(() => buildCommands(query), [query]);
+  const commands = useMemo(() => buildCommands(query, t), [query, t]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -157,7 +165,7 @@ export function CommandPalette() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("commandPalette.aria")}
         className="w-full max-w-lg overflow-hidden rounded-xl border border-vx-border bg-vx-card shadow-2xl animate-fade-up"
       >
         <input
@@ -167,8 +175,8 @@ export function CommandPalette() {
           aria-expanded="true"
           aria-controls="command-palette-list"
           aria-activedescendant={activeOptionId}
-          aria-label="Search pages, or paste an intent id or solver address"
-          placeholder="Jump to a page, or paste an intent id / solver address…"
+          aria-label={t("commandPalette.search.aria")}
+          placeholder={t("commandPalette.search.placeholder")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -183,12 +191,12 @@ export function CommandPalette() {
           ref={listRef}
           id="command-palette-list"
           role="listbox"
-          aria-label="Commands"
+          aria-label={t("commandPalette.list")}
           className="max-h-80 overflow-y-auto py-1"
         >
           {commands.length === 0 ? (
             <li role="option" aria-selected="false" aria-disabled="true" className="px-4 py-3 text-sm text-vx-muted">
-              No matches
+              {t("commandPalette.empty")}
             </li>
           ) : (
             commands.map((command, index) => (

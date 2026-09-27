@@ -6,18 +6,18 @@ import { usePathname } from "next/navigation";
 import { VortexLogo } from "./VortexLogo";
 import { ConnectWalletButton } from "./ConnectWalletButton";
 import { SettingsPanel } from "./SettingsPanel";
-import { getMessage } from "@/lib/i18n-legacy";
 import { useWalletStore } from "@/store/wallet";
 import { useDismissableOverlay } from "@/hooks/useDismissableOverlay";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
+import type { MessageKey } from "@/lib/i18n";
 
 type NavProps = { variant: "home" } | { variant: "breadcrumb"; label: string };
 
-const NAV_LINKS = [
-  { href: "/explore", label: "explore" as const },
-  { href: "/analytics", label: "analytics" as const },
-  { href: "/solve", label: "becomeSolver" as const },
-  { href: "/contributors", label: "contributors" as const },
+const NAV_LINKS: { href: string; label: MessageKey }[] = [
+  { href: "/explore", label: "nav.explore" },
+  { href: "/analytics", label: "nav.analytics" },
+  { href: "/solve", label: "nav.becomeSolver" },
+  { href: "/contributors", label: "nav.contributors" },
 ];
 
 export function Nav(props: NavProps) {
@@ -58,16 +58,16 @@ export function Nav(props: NavProps) {
                   href={link.href}
                   className={`transition-colors ${pathname === link.href ? "text-vx-text" : "hover:text-vx-text active:text-vx-sage"}`}
                 >
-                  {getMessage(`nav.${link.label}`)}
+                  {t(link.label)}
                 </Link>
               ))}
               {isConnected && (
                 <Link href="/my-intents" className={`transition-colors ${pathname === "/my-intents" ? "text-vx-text" : "hover:text-vx-text"}`}>
-                  My Intents
+                  {t("nav.myIntents")}
                 </Link>
               )}
               <a href="https://github.com/vortex-protocol" className="hover:text-vx-text transition-colors">
-                {getMessage("nav.docs")}
+                {t("nav.docs")}
               </a>
             </div>
           </div>
@@ -92,7 +92,7 @@ export function Nav(props: NavProps) {
               onClick={() => setMobileOpen((open) => !open)}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav-panel"
-              aria-label={mobileOpen ? getMessage("nav.closeMenu") : getMessage("nav.openMenu")}
+              aria-label={mobileOpen ? t("nav.closeMenu") : t("nav.openMenu")}
               className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-vx-border text-vx-muted hover:text-vx-text transition-colors"
             >
               <svg
@@ -134,7 +134,7 @@ export function Nav(props: NavProps) {
               onClick={closeMobileMenu}
               className={`py-2 text-sm transition-colors ${pathname === link.href ? "text-vx-text" : "text-vx-muted hover:text-vx-text active:text-vx-sage"}`}
             >
-              {getMessage(`nav.${link.label}`)}
+              {t(link.label)}
             </Link>
           ))}
           {isConnected && (

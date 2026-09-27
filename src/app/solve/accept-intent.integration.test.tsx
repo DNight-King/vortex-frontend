@@ -14,7 +14,8 @@ vi.mock("@/lib/api", () => ({
 
 import { useWalletStore } from "@/store/wallet";
 import { ToastViewport } from "@/components/ToastViewport";
-import SolvePage from "./page";
+import SolvePage from "./SolvePageClient";
+import { en } from "@/lib/i18n/messages/en";
 
 const openIntent: OpenIntent = {
   id: "a1b2",
@@ -66,12 +67,12 @@ describe("solve page accept-intent flow (integration)", () => {
     const user = userEvent.setup();
     renderSolvePage();
 
-    await user.click(screen.getByRole("tab", { name: "intents" }));
+    await user.click(screen.getByRole("tab", { name: en["solve.tabs.intents"] }));
     await waitFor(() =>
       expect(screen.getByText("500 USDC on ethereum")).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByText("Accept Intent →"));
+    await user.click(screen.getByText(en["solve.intents.accept"]));
 
     await waitFor(() => {
       expect(
@@ -81,7 +82,7 @@ describe("solve page accept-intent flow (integration)", () => {
     expect(acceptIntentMock).toHaveBeenCalledWith("a1b2", "GABC123");
 
     await waitFor(() => {
-      expect(screen.getByText(/No open intents right now/)).toBeInTheDocument();
+      expect(screen.getByText(en["solve.intents.empty"])).toBeInTheDocument();
     });
   });
 });

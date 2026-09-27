@@ -5,9 +5,19 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { getGovernanceProposals } from "@/lib/governanceStore";
 import { timeRemaining } from "@/lib/time";
-import { getMessage } from "@/i18n/messages";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+import type { MessageKey } from "@/lib/i18n";
+
+const FILTERS = ["all", "active", "passed", "rejected"] as const;
+const FILTER_LABEL_KEY: Record<(typeof FILTERS)[number], MessageKey> = {
+  all: "governance.filter.all",
+  active: "governance.status.active",
+  passed: "governance.status.passed",
+  rejected: "governance.status.rejected",
+};
 
 export default function GovernancePageClient() {
+  const { t } = useTranslation();
   const proposals = getGovernanceProposals();
   const [filter, setFilter] = useState<"all" | "active" | "passed" | "rejected">("all");
 
@@ -18,22 +28,22 @@ export default function GovernancePageClient() {
 
   return (
     <div className="min-h-screen">
-      <Nav variant="breadcrumb" label="Governance" />
+      <Nav variant="breadcrumb" label={t("governance.nav.label")} />
 
       <main id="main-content" className="max-w-5xl mx-auto px-3 sm:px-5 py-8 sm:py-12">
         <div className="mb-8 sm:mb-10">
-          <div className="eyebrow mb-2 sm:mb-3 text-xs">Community Protocol</div>
+          <div className="eyebrow mb-2 sm:mb-3 text-xs">{t("governance.eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl font-bold text-vx-text mb-2 sm:mb-3">
-            {getMessage("solve.governance.title")}
+            {t("governance.title")}
           </h1>
           <p className="text-vx-muted text-xs sm:text-sm max-w-lg leading-relaxed">
-            {getMessage("solve.governance.description")}
+            {t("governance.description")}
           </p>
         </div>
 
         {/* Filter buttons */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {(["all", "active", "passed", "rejected"] as const).map((f) => (
+          {FILTERS.map((f) => (
             <button
               key={f}
               type="button"
@@ -44,7 +54,7 @@ export default function GovernancePageClient() {
                   : "bg-vx-surface/50 text-vx-muted hover:text-vx-text border border-vx-border"
               }`}
             >
-              {f}
+              {t(FILTER_LABEL_KEY[f])}
             </button>
           ))}
         </div>
@@ -72,7 +82,7 @@ export default function GovernancePageClient() {
                       : "bg-red-500/10 text-red-400 border border-red-500/30"
                   }`}
                 >
-                  {proposal.status}
+                  {t(FILTER_LABEL_KEY[proposal.status])}
                 </span>
               </div>
 
@@ -92,20 +102,20 @@ export default function GovernancePageClient() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-vx-line text-xs text-vx-muted">
                 <div className="flex gap-4">
                   <span>
-                    For: <strong className="text-vx-text">{proposal.votesFor.toLocaleString()}</strong>
+                    {t("governance.votes.for")} <strong className="text-vx-text">{proposal.votesFor.toLocaleString()}</strong>
                   </span>
                   <span>
-                    Against: <strong className="text-vx-text">{proposal.votesAgainst.toLocaleString()}</strong>
+                    {t("governance.votes.against")} <strong className="text-vx-text">{proposal.votesAgainst.toLocaleString()}</strong>
                   </span>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span>Deadline: {timeRemaining(proposal.deadline)}</span>
+                  <span>{t("governance.deadline", { time: timeRemaining(proposal.deadline) })}</span>
                   <Link
                     href={`/governance/${proposal.id}`}
                     className="text-vx-sage hover:underline font-semibold"
                   >
-                    View Proposal & Discussion →
+                    {t("governance.viewProposal")}
                   </Link>
                 </div>
               </div>

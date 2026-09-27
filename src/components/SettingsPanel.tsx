@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LOCALES, type Locale } from "@/lib/i18n";
-import { useLocale, useSetLocale } from "@/lib/i18n/I18nProvider";
+import { useLocale, useSetLocale, useTranslation } from "@/lib/i18n/I18nProvider";
 import { useDismissableOverlay } from "@/hooks/useDismissableOverlay";
 
 type MotionPreference = "system" | "reduce" | "allow";
@@ -19,6 +19,7 @@ function applyMotionPreference(preference: MotionPreference) {
 }
 
 export function SettingsPanel() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [motionPreference, setMotionPreference] =
     useState<MotionPreference>("system");
@@ -66,7 +67,7 @@ export function SettingsPanel() {
         aria-haspopup="dialog"
         className="px-3 py-1.5 text-xs rounded-lg border border-vx-border text-vx-muted hover:text-vx-text hover:border-vx-sage/50 transition-colors"
       >
-        Settings
+        {t("settings.toggle")}
       </button>
 
       {open && (
@@ -75,19 +76,19 @@ export function SettingsPanel() {
           id="settings-panel"
           role="dialog"
           aria-modal="true"
-          aria-label="Settings"
+          aria-label={t("settings.toggle")}
           className="absolute right-0 mt-2 w-64 rounded-xl border border-vx-border bg-vx-card p-4 shadow-xl z-50"
         >
           <div className="space-y-4">
             <div>
               <label htmlFor="settings-locale-switcher" className="block text-xs font-medium text-vx-muted">
-                Language
+                {t("settings.language")}
               </label>
               <select
                 id="settings-locale-switcher"
                 value={locale}
                 onChange={(e) => setLocale(e.target.value as Locale)}
-                aria-label="Switch language"
+                aria-label={t("settings.language.aria")}
                 className="mt-1 w-full bg-vx-surface border border-vx-border rounded-md px-2 py-1 text-sm text-vx-text"
               >
                 {LOCALES.map((loc) => (
@@ -107,7 +108,7 @@ export function SettingsPanel() {
                 htmlFor="motion-preference"
                 className="block text-xs font-medium text-vx-muted"
               >
-                Motion
+                {t("settings.motion")}
               </label>
               <select
                 id="motion-preference"
@@ -115,17 +116,17 @@ export function SettingsPanel() {
                 onChange={(e) =>
                   handleMotionChange(e.target.value as MotionPreference)
                 }
-                aria-label="Motion preference"
+                aria-label={t("settings.motion.aria")}
                 className="mt-1 w-full bg-vx-surface border border-vx-border rounded-md px-2 py-1 text-sm text-vx-text"
               >
                 <option value="system" className="bg-vx-ink text-vx-text">
-                  Use system setting
+                  {t("settings.motion.system")}
                 </option>
                 <option value="reduce" className="bg-vx-ink text-vx-text">
-                  Reduce motion
+                  {t("settings.motion.reduce")}
                 </option>
                 <option value="allow" className="bg-vx-ink text-vx-text">
-                  Allow motion
+                  {t("settings.motion.allow")}
                 </option>
               </select>
             </div>

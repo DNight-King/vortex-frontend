@@ -156,7 +156,7 @@ If preview-specific variables are not set, the workflow uses sensible defaults p
 | `npm run lint`               | Run ESLint across codebase                                        |
 | `npm run check:editorconfig` | Verify formatting consistency with `.editorconfig`                |
 | `npm run check:env`          | Check env vars, `.env.example` and this README against `src/lib/env-schema.mjs` |
-| `npm run check:i18n`         | Check that every locale catalog has the same keys                 |
+| `npm run check:i18n`         | Check locale catalogs, `t()` keys and hard-coded JSX text (see docs/architecture.md) |
 | `npm run check:manifest`     | Fail on duplicate `package.json` keys or npm scripts that are referenced but not defined |
 | `npm run typecheck`          | Run strict TypeScript typechecking (`tsc --noEmit`)               |
 | `npm test`                   | Run the Vitest test suite                                         |

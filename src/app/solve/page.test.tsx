@@ -34,7 +34,7 @@ vi.mock("@/components/Nav", () => ({ Nav: () => <nav /> }));
 vi.mock("@/components/Footer", () => ({ Footer: () => <footer /> }));
 
 import SolvePage from "./SolvePageClient";
-import { messages } from "@/i18n/messages";
+import { en } from "@/lib/i18n/messages/en";
 
 const solvers: Solver[] = [
   {
@@ -116,7 +116,7 @@ describe("SolvePage", () => {
     });
     render(<SolvePage />);
     expect(
-      screen.getByRole("heading", { name: messages.en.solve.hero.title }),
+      screen.getByRole("heading", { name: en["solve.hero.title"] }),
     ).toBeInTheDocument();
   });
 

@@ -1,3 +1,5 @@
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+
 /**
  * Displays a solver identifier with verification status.
  * Shows a visual indicator and warning message if the solver is not verified.
@@ -18,6 +20,7 @@ export function SolverBadge({
   showWarning = true,
   className = "",
 }: SolverBadgeProps) {
+  const { t } = useTranslation();
   return (
     <div className={className}>
       <div
@@ -43,7 +46,7 @@ export function SolverBadge({
       </div>
       {!isVerified && showWarning && (
         <p className="text-[11px] text-amber-400/80 mt-1.5">
-          This solver identity could not be verified against our registered solver list.{" "}
+          {t("solverBadge.unverified")}{" "}
           {solverAddress && (
             <span className="font-mono text-[10px] block mt-0.5 break-all">{solverAddress}</span>
           )}

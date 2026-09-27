@@ -12,21 +12,31 @@ import { useIntent } from "@/hooks/useIntent";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
 import { sanitizeDisplayText } from "@/lib/textSafety";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+import type { MessageKey, Translator } from "@/lib/i18n";
 import { config } from "@/lib/config";
+import type { IntentStatus } from "@/lib/types";
 
 const NETWORK = config.network;
+
+const STATUS_LABEL_KEY: Record<IntentStatus, MessageKey> = {
+  pending: "intent.status.pending",
+  accepted: "intent.status.accepted",
+  filled: "intent.status.filled",
+  failed: "intent.status.failed",
+};
 
 // This screen shows 6-and-6 truncation for full-width identifiers.
 const truncate = (value: string) => truncateAddress(value, { prefix: 6, suffix: 6 });
 
-function deadlineLabel(deadline: string) {
+function deadlineLabel(deadline: string, t: Translator) {
   const msRemaining = new Date(deadline).getTime() - Date.now();
-  if (msRemaining <= 0) return "Expired";
+  if (msRemaining <= 0) return t("intentDetail.deadline.expired");
   const minutes = Math.floor(msRemaining / 60_000);
   const seconds = Math.floor((msRemaining % 60_000) / 1000);
   return minutes > 0
-    ? `${minutes}m ${seconds}s remaining`
-    : `${seconds}s remaining`;
+    ? t("intentDetail.deadline.minutes", { minutes, seconds })
+    : t("intentDetail.deadline.seconds", { seconds });
 }
 
 export default function IntentDetailPage({
@@ -34,6 +44,7 @@ export default function IntentDetailPage({
 }: {
   params: { id: string };
 }) {
+  const { t } = useTranslation();
   const { intent, isLoading, error } = useIntent(params.id);
   const { copy } = useCopyToClipboard();
   const [txHashCopied, setTxHashCopied] = useState(false);
@@ -42,12 +53,12 @@ export default function IntentDetailPage({
 
   return (
     <div className="min-h-screen">
-      <Nav variant="breadcrumb" label={`Intent ${params.id.slice(0, 8)}`} />
+      <Nav variant="breadcrumb" label={t("intentDetail.breadcrumb", { id: params.id.slice(0, 8) })} />
 
       <main id="main-content" className="max-w-3xl mx-auto px-5 py-12">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/explore" className="text-xs text-vx-sage hover:underline print:hidden">
-            ← Back to explorer
+            {t("intentDetail.back")}
           </Link>
           {intent && (
             <button
@@ -56,7 +67,7 @@ export default function IntentDetailPage({
               className="print:hidden text-xs px-3 py-1.5 rounded-lg border border-vx-border text-vx-muted
                          hover:text-vx-text hover:border-vx-sage/40 transition-colors"
             >
-              Print / Save as PDF
+              {t("intentDetail.print")}
             </button>
           )}
         </div>
@@ -65,26 +76,25 @@ export default function IntentDetailPage({
           <SkeletonDetailCard />
         ) : error ? (
           <div className="card p-8 text-center text-sm text-vx-muted">
-            Couldn&apos;t find that intent. It may not exist, or the relay is
-            unreachable.
+            {t("intentDetail.error")}
           </div>
         ) : !intent ? (
           <div className="card p-8 text-center text-sm text-vx-muted">
-            No details found for this intent.
+            {t("intentDetail.empty")}
           </div>
         ) : (
           <div id="intent-record" className="card p-6 space-y-6 print:border print:border-black/20 print:shadow-none">
             {/* Print-only header - the on-screen Nav/Footer are stripped when printing. */}
             <div className="hidden print:block border-b border-black/20 pb-3">
-              <div className="text-sm font-semibold">Vortex - swap intent record</div>
+              <div className="text-sm font-semibold">{t("intentDetail.print.title")}</div>
               <div className="text-xs text-black/60">
-                Intent {params.id} · generated {new Date().toLocaleString()}
+                {t("intentDetail.print.subtitle", { id: params.id, date: new Date().toLocaleString() })}
               </div>
             </div>
 
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="eyebrow mb-2">Intent</div>
+                <div className="eyebrow mb-2">{t("intentDetail.eyebrow")}</div>
                 <h1 className="text-2xl font-bold text-vx-text num">
                   {intent.srcAmount} {intent.srcToken} → {intent.dstAmount}{" "}
                   {intent.dstToken}
@@ -99,34 +109,32 @@ export default function IntentDetailPage({
                 className="text-xs rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-amber-300
                            print:border-black/40 print:bg-transparent print:text-black"
               >
-                This intent is <strong>{intent.status}</strong> and not yet settled - this is not a
-                completed-swap record.
+                {t("intentDetail.notSettled", { status: t(STATUS_LABEL_KEY[intent.status]) })}
               </p>
             )}
 
             <div className="grid sm:grid-cols-2 gap-4">
-              {[
-                ["Source chain", intent.srcChain],
-                ["Solver", sanitizeDisplayText(intent.solver)],
-                ["Minimum out", `${intent.minOut} ${intent.dstToken}`],
-                ["Submitted", `${new Date(intent.createdAt).toLocaleString()} (${timeAgo(intent.createdAt)})`],
-                ["Deadline", deadlineLabel(intent.deadline)],
-                ["Destination address", truncateAddress(intent.dstAddress)],
-              ].map(([k, v]) => (
+              {([
+                ["intentDetail.field.srcChain", intent.srcChain],
+                ["intentDetail.field.solver", sanitizeDisplayText(intent.solver)],
+                ["intentDetail.field.minOut", `${intent.minOut} ${intent.dstToken}`],
+                ["intentDetail.field.submitted", `${new Date(intent.createdAt).toLocaleString()} (${timeAgo(intent.createdAt)})`],
+                ["intentDetail.field.deadline", deadlineLabel(intent.deadline, t)],
+              ] as [MessageKey, string][]).map(([k, v]) => (
                 <div key={k} className="bg-vx-surface/40 rounded-lg p-3">
-                  <div className="eyebrow mb-1">{k}</div>
+                  <div className="eyebrow mb-1">{t(k)}</div>
                   <div className="text-sm text-vx-text num capitalize">{v}</div>
                 </div>
               ))}
               <div className="bg-vx-surface/40 rounded-lg p-3">
-                <div className="eyebrow mb-1">Destination address</div>
+                <div className="eyebrow mb-1">{t("intentDetail.field.dstAddress")}</div>
                 <div className="flex items-center gap-2 text-sm text-vx-text num">
                   <span className="truncate">
                     {truncateAddress(intent.dstAddress)}
                   </span>
                   <CopyButton
                     value={intent.dstAddress}
-                    label="Copy destination address"
+                    label={t("intentDetail.copyDestination")}
                   />
                 </div>
               </div>
@@ -134,7 +142,7 @@ export default function IntentDetailPage({
 
             {intent.txHash && (
               <div className="pt-2 border-t border-vx-line">
-                <div className="eyebrow mb-1">Settlement transaction</div>
+                <div className="eyebrow mb-1">{t("intentDetail.settlementTx")}</div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-xs text-vx-muted num">{truncate(intent.txHash)}</span>
                   <button
@@ -149,7 +157,7 @@ export default function IntentDetailPage({
                     }}
                     className="text-xs text-vx-sage hover:underline"
                   >
-                    {txHashCopied ? "Copied" : "Copy"}
+                    {txHashCopied ? t("intentDetail.copied") : t("intentDetail.copy")}
                   </button>
                   <a
                     href={`https://stellar.expert/explorer/${NETWORK}/tx/${intent.txHash}`}
@@ -157,7 +165,7 @@ export default function IntentDetailPage({
                     rel="noopener noreferrer"
                     className="text-xs text-vx-sage hover:underline print:hidden"
                   >
-                    View on stellar.expert →
+                    {t("intentDetail.viewOnExplorer")}
                   </a>
                 </div>
               </div>

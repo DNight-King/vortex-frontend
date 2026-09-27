@@ -15,6 +15,7 @@ import { timeAgo } from "@/lib/time";
 import { CHAINS } from "@/lib/marketData";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 import type { IntentStatus } from "@/lib/types";
+import type { MessageKey } from "@/lib/i18n";
 
 const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
   "all",
@@ -25,6 +26,18 @@ const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
 ];
 const SORT_OPTIONS = ["newest", "oldest", "largest"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
+const STATUS_LABEL_KEY: Record<IntentStatus | "all", MessageKey> = {
+  all: "filters.status.all",
+  pending: "intent.status.pending",
+  accepted: "intent.status.accepted",
+  filled: "intent.status.filled",
+  failed: "intent.status.failed",
+};
+const SORT_LABEL_KEY: Record<SortOption, MessageKey> = {
+  newest: "filters.sort.newest",
+  oldest: "filters.sort.oldest",
+  largest: "filters.sort.largest",
+};
 const CHAIN_IDS = new Set(CHAINS.map((c) => c.id));
 const ROW_HEIGHT = 96;
 const ROW_GAP = 8;
@@ -143,18 +156,17 @@ export default function ExplorePageClient() {
 
   return (
     <div className="min-h-screen">
-      <Nav variant="breadcrumb" label="Explore" />
+      <Nav variant="breadcrumb" label={t("nav.explore")} />
 
       <main id="main-content" className="max-w-5xl mx-auto px-5 py-12">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <div className="eyebrow mb-3">Intent Explorer</div>
+            <div className="eyebrow mb-3">{t("explore.eyebrow")}</div>
             <h1 className="text-3xl font-bold text-vx-text mb-3">
-              Browse all intents
+              {t("explore.title")}
             </h1>
             <p className="text-vx-muted text-sm max-w-lg leading-relaxed">
-              Every swap intent submitted to Vortex, from open auctions to
-              completed fills.
+              {t("explore.description")}
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-vx-muted px-1 pt-1 flex-shrink-0">
@@ -166,19 +178,19 @@ export default function ExplorePageClient() {
         {/* Filters and Search */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <label htmlFor="intent-search" className="sr-only">
-            Search intents
+            {t("filters.search.label")}
           </label>
           <input
             id="intent-search"
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by id, token, chain or solver"
+            placeholder={t("filters.search.placeholder")}
             className="bg-vx-surface border border-vx-border rounded-lg px-3 py-2 text-sm text-vx-text placeholder-vx-dim/60 focus:outline-none focus:border-vx-sage/50 transition-colors"
           />
 
           <label htmlFor="status-filter" className="sr-only">
-            Filter by status
+            {t("filters.status.label")}
           </label>
           <select
             id="status-filter"
@@ -188,15 +200,13 @@ export default function ExplorePageClient() {
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
-                {s === "all"
-                  ? "All statuses"
-                  : s.charAt(0).toUpperCase() + s.slice(1)}
+                {t(STATUS_LABEL_KEY[s])}
               </option>
             ))}
           </select>
 
           <label htmlFor="chain-filter" className="sr-only">
-            Filter by chain
+            {t("filters.chain.label")}
           </label>
           <select
             id="chain-filter"
@@ -204,7 +214,7 @@ export default function ExplorePageClient() {
             onChange={handleChainChange}
             className="bg-vx-surface border border-vx-border rounded-lg px-3 py-2 text-sm text-vx-text"
           >
-            <option value="all">All chains</option>
+            <option value="all">{t("filters.chain.all")}</option>
             {CHAINS.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -213,7 +223,7 @@ export default function ExplorePageClient() {
           </select>
 
           <label htmlFor="sort-order" className="sr-only">
-            Sort order
+            {t("filters.sort.label")}
           </label>
           <select
             id="sort-order"
@@ -221,9 +231,11 @@ export default function ExplorePageClient() {
             onChange={handleSortChange}
             className="bg-vx-surface border border-vx-border rounded-lg px-3 py-2 text-sm text-vx-text"
           >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="largest">Largest amount</option>
+            {SORT_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {t(SORT_LABEL_KEY[o])}
+              </option>
+            ))}
           </select>
 
           {isFiltered && (
@@ -242,11 +254,11 @@ export default function ExplorePageClient() {
             disabled={filtered.length === 0}
             className="px-3 py-2 rounded-lg border border-vx-border text-xs font-semibold text-vx-muted hover:text-vx-text hover:border-vx-sage/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-vx-sage"
           >
-            Export CSV
+            {t("filters.exportCsv")}
           </button>
 
           <span className="text-xs text-vx-muted ml-auto" aria-live="polite" aria-atomic="true">
-            {filtered.length} intent{filtered.length === 1 ? "" : "s"}
+            {t(filtered.length === 1 ? "filters.count.one" : "filters.count.other", { count: filtered.length })}
           </span>
         </div>
 
@@ -277,7 +289,7 @@ export default function ExplorePageClient() {
             ref={scrollRef}
             className="max-h-[70vh] overflow-y-auto"
             role="list"
-            aria-label={`${filtered.length} intent${filtered.length === 1 ? "" : "s"}`}
+            aria-label={t(filtered.length === 1 ? "filters.count.one" : "filters.count.other", { count: filtered.length })}
           >
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -304,7 +316,7 @@ export default function ExplorePageClient() {
                         {item.srcAmount} {item.srcToken} → {item.dstToken}
                       </div>
                       <div className="text-xs text-vx-muted capitalize">
-                        {item.srcChain} · via {sanitizeDisplayText(item.solver)}
+                        {t("activityFeed.item.route", { chain: item.srcChain, solver: sanitizeDisplayText(item.solver) })}
                       </div>
                     </div>
                     <IntentStatusBadge status={item.status} />

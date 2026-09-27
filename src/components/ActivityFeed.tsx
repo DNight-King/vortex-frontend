@@ -118,7 +118,7 @@ export function ActivityFeedView({ items, isLoading, error, isLive }: ActivityFe
                 {item.srcAmount} {item.srcToken} → {item.dstToken}
               </div>
               <div className="text-[10px] text-vx-muted capitalize">
-                {item.srcChain} · via {item.solver}
+                {t("activityFeed.item.route", { chain: item.srcChain, solver: item.solver })}
               </div>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">

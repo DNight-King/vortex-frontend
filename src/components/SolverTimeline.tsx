@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { FeedItem } from "@/lib/types";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function toPoints(buckets: Array<{ count: number }>): string {
 }
 
 /** Return a short human-readable label for an ISO week string like "2025-W32". */
-function weekLabel(isoWeek: string): string {
+function weekLabel(isoWeek: string, locale: string): string {
   // Parse the year and week number to derive the Monday of that week.
   const [yearStr, weekStr] = isoWeek.split("-W");
   const year = parseInt(yearStr ?? "2025", 10);
@@ -67,12 +68,13 @@ function weekLabel(isoWeek: string): string {
   // Snap to that week's Monday.
   const dayOfWeek = monday.getDay(); // 0=Sun
   monday.setDate(monday.getDate() - ((dayOfWeek + 6) % 7));
-  return monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return monday.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimelineProps) {
+  const { t, locale } = useTranslation();
   // ── Derive solver-specific fills ────────────────────────────────────────
   const solverFills = useMemo(
     () => fills.filter(f => f.solver === solverAddress),
@@ -127,14 +129,13 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
     return (
       <div className="card overflow-hidden">
         <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-vx-border bg-vx-surface/30">
-          <h2 className="text-sm font-semibold text-vx-text">Solver Timeline</h2>
+          <h2 className="text-sm font-semibold text-vx-text">{t("solverTimeline.title")}</h2>
         </div>
         <div className="p-6 sm:p-8 text-center">
           <div aria-hidden="true" className="mb-3 text-2xl">🌱</div>
-          <p className="text-sm font-medium text-vx-text mb-1">Just getting started</p>
+          <p className="text-sm font-medium text-vx-text mb-1">{t("solverTimeline.empty.title")}</p>
           <p className="text-xs text-vx-muted max-w-xs mx-auto">
-            This solver hasn&apos;t filled any intents yet. Once they start filling, a
-            week-by-week volume trend will appear here.
+            {t("solverTimeline.empty.message")}
           </p>
         </div>
       </div>
@@ -150,17 +151,20 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
   const step = (SPARKLINE_W - 2 * MARGIN) / Math.max(buckets.length - 1, 1);
 
   // ── Accessible text summary ──────────────────────────────────────────────
+  const dateOptions = { month: "short", day: "numeric", year: "numeric" } as const;
   const summaryText = [
-    `Solver timeline: ${solverFills.length} fill${solverFills.length !== 1 ? "s" : ""} total`,
+    t("solverTimeline.summary.total", { count: solverFills.length }),
     firstFill
-      ? `first fill ${new Date(firstFill.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      ? t("solverTimeline.summary.first", { date: new Date(firstFill.createdAt).toLocaleDateString(locale, dateOptions) })
       : null,
     latestFill && latestFill.id !== firstFill?.id
-      ? `most recent fill ${new Date(latestFill.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      ? t("solverTimeline.summary.latest", { date: new Date(latestFill.createdAt).toLocaleDateString(locale, dateOptions) })
       : null,
-    `${successCount} successful fill${successCount !== 1 ? "s" : ""}`,
+    t("solverTimeline.summary.successful", { count: successCount }),
     hasSufficientData
-      ? `weekly fill counts: ${buckets.map(b => `${weekLabel(b.week)}: ${b.count}`).join(", ")}`
+      ? t("solverTimeline.summary.weekly", {
+          counts: buckets.map(b => `${weekLabel(b.week, locale)}: ${b.count}`).join(", "),
+        })
       : null,
   ]
     .filter(Boolean)
@@ -170,15 +174,15 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
     <div className="card overflow-hidden">
       {/* Header */}
       <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-vx-border bg-vx-surface/30">
-        <h2 className="text-sm font-semibold text-vx-text">Solver Timeline</h2>
+        <h2 className="text-sm font-semibold text-vx-text">{t("solverTimeline.title")}</h2>
         <p className="text-[10px] text-vx-muted mt-0.5">
-          Based on available feed data — registration date not yet exposed by the API
+          {t("solverTimeline.subtitle")}
         </p>
       </div>
 
       <div className="p-4 sm:p-5 space-y-5">
         {/* Milestones list */}
-        <ol className="relative border-l border-vx-border ml-2 space-y-3" aria-label="Solver milestones">
+        <ol className="relative border-l border-vx-border ml-2 space-y-3" aria-label={t("solverTimeline.milestones")}>
           {firstFill && (
             <li className="ml-4">
               <span
@@ -186,16 +190,16 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-vx-sage border-2 border-vx-ink"
               />
               <p className="text-xs font-semibold text-vx-text">
-                First fill
+                {t("solverTimeline.firstFill")}
                 <span className="text-vx-muted ml-1 font-normal">
-                  (proxy for registration — earliest known fill)
+                  {t("solverTimeline.firstFillNote")}
                 </span>
               </p>
               <time
                 dateTime={firstFill.createdAt}
                 className="text-[10px] text-vx-muted num"
               >
-                {new Date(firstFill.createdAt).toLocaleDateString("en-US", {
+                {new Date(firstFill.createdAt).toLocaleDateString(locale, {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
@@ -213,8 +217,8 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 aria-hidden="true"
                 className="absolute -left-[5px] w-2.5 h-2.5 rounded-full bg-vx-lav border-2 border-vx-ink"
               />
-              <p className="text-xs font-semibold text-vx-text">5 fills milestone</p>
-              <p className="text-[10px] text-vx-muted">Gaining traction</p>
+              <p className="text-xs font-semibold text-vx-text">{t("solverTimeline.milestone5")}</p>
+              <p className="text-[10px] text-vx-muted">{t("solverTimeline.milestone5Note")}</p>
             </li>
           )}
 
@@ -224,8 +228,8 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 aria-hidden="true"
                 className="absolute -left-[5px] w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-vx-ink"
               />
-              <p className="text-xs font-semibold text-vx-text">10 fills milestone</p>
-              <p className="text-[10px] text-vx-muted">Established solver</p>
+              <p className="text-xs font-semibold text-vx-text">{t("solverTimeline.milestone10")}</p>
+              <p className="text-[10px] text-vx-muted">{t("solverTimeline.milestone10Note")}</p>
             </li>
           )}
 
@@ -235,12 +239,12 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 aria-hidden="true"
                 className="absolute -left-[5px] w-2.5 h-2.5 rounded-full bg-vx-sage/50 border-2 border-vx-ink"
               />
-              <p className="text-xs font-semibold text-vx-text">Most recent fill</p>
+              <p className="text-xs font-semibold text-vx-text">{t("solverTimeline.latestFill")}</p>
               <time
                 dateTime={latestFill.createdAt}
                 className="text-[10px] text-vx-muted num"
               >
-                {new Date(latestFill.createdAt).toLocaleDateString("en-US", {
+                {new Date(latestFill.createdAt).toLocaleDateString(locale, {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
@@ -253,7 +257,7 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
         {/* Weekly volume sparkline */}
         <div>
           <p className="text-[10px] text-vx-muted mb-2 uppercase tracking-wide">
-            Weekly fill volume
+            {t("solverTimeline.weekly")}
           </p>
 
           {/* Screen-reader summary — hides the SVG from AT */}
@@ -330,8 +334,9 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 className="w-2.5 h-2.5 rounded-full bg-vx-sage flex-shrink-0"
               />
               <span className="text-xs text-vx-muted">
-                {solverFills.length} fill{solverFills.length !== 1 ? "s" : ""} —
-                chart will populate as more data arrives
+                {t(solverFills.length === 1 ? "solverTimeline.sparse.one" : "solverTimeline.sparse.other", {
+                  count: solverFills.length,
+                })}
               </span>
             </div>
           )}
@@ -340,10 +345,10 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
           {hasSufficientData && (
             <div className="flex justify-between mt-1">
               <span className="text-[9px] text-vx-muted num">
-                {weekLabel(buckets[0]!.week)}
+                {weekLabel(buckets[0]!.week, locale)}
               </span>
               <span className="text-[9px] text-vx-muted num">
-                {weekLabel(buckets[buckets.length - 1]!.week)}
+                {weekLabel(buckets[buckets.length - 1]!.week, locale)}
               </span>
             </div>
           )}
@@ -353,11 +358,11 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
         <div className="grid grid-cols-3 gap-3 pt-2 border-t border-vx-border">
           <div className="text-center">
             <div className="num text-sm font-semibold text-vx-text">{solverFills.length}</div>
-            <div className="text-[10px] text-vx-muted">Total fills</div>
+            <div className="text-[10px] text-vx-muted">{t("solverTimeline.stats.total")}</div>
           </div>
           <div className="text-center">
             <div className="num text-sm font-semibold text-vx-text">{successCount}</div>
-            <div className="text-[10px] text-vx-muted">Successful</div>
+            <div className="text-[10px] text-vx-muted">{t("solverTimeline.stats.successful")}</div>
           </div>
           <div className="text-center">
             <div className="num text-sm font-semibold text-vx-text">
@@ -365,7 +370,7 @@ export function SolverTimeline({ solverAddress, fills, isLoading }: SolverTimeli
                 ? `${Math.round((successCount / solverFills.length) * 100)}%`
                 : "—"}
             </div>
-            <div className="text-[10px] text-vx-muted">Success rate</div>
+            <div className="text-[10px] text-vx-muted">{t("solverTimeline.stats.successRate")}</div>
           </div>
         </div>
       </div>

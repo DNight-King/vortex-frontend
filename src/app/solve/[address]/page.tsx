@@ -29,7 +29,7 @@ export default function SolverDetailPage({ params }: { params: { address: string
     <div className="min-h-screen">
       <Nav
         variant="breadcrumb"
-        label={`Solver ${params.address.slice(0, 8)}`}
+        label={t("solverDetail.breadcrumb", { address: params.address.slice(0, 8) })}
       />
 
       <main
@@ -41,11 +41,11 @@ export default function SolverDetailPage({ params }: { params: { address: string
           tabIndex={-1}
           className="text-xs text-vx-sage hover:underline mb-6 inline-block focus:outline-none focus:ring-2 focus:ring-vx-sage focus:ring-offset-2 focus:ring-offset-vx-ink rounded"
         >
-          ← Back to solvers
+          {t("solverDetail.back")}
         </Link>
 
         {!isValidAddress ? (
-          <EmptyState variant="error" message="Invalid solver address format." />
+          <EmptyState variant="error" message={t("solverDetail.invalidAddress")} />
         ) : isLoading ? (
           <div
             className="card p-6 sm:p-8 space-y-3 animate-pulse"
@@ -55,16 +55,16 @@ export default function SolverDetailPage({ params }: { params: { address: string
             <div className="h-4 w-1/3 bg-vx-surface rounded animate-pulse" />
           </div>
         ) : error ? (
-          <EmptyState variant="error" message="Couldn't load solver details right now. Try again shortly." />
+          <EmptyState variant="error" message={t("solverDetail.loadError")} />
         ) : !solver ? (
-          <EmptyState variant="error" message="No solver found at that address." />
+          <EmptyState variant="error" message={t("solverDetail.notFound")} />
         ) : (
           <>
             {/* Header card */}
             <div className="card p-4 sm:p-6 space-y-4 sm:space-y-6 mb-6">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>
-                  <div className="eyebrow mb-1 sm:mb-2 text-xs">Solver</div>
+                  <div className="eyebrow mb-1 sm:mb-2 text-xs">{t("solverDetail.eyebrow")}</div>
                   <h1 className="text-lg sm:text-2xl font-bold text-vx-text break-words">
                     {sanitizeDisplayText(solver.name)}
                   </h1>
@@ -75,31 +75,31 @@ export default function SolverDetailPage({ params }: { params: { address: string
                       ? "bg-vx-sage-bg text-vx-sage border-vx-sage/30"
                       : "bg-vx-surface text-vx-muted border-vx-border"
                   }`}
-                  aria-label={`Solver status: ${solver.status}`}
+                  aria-label={t("solverDetail.statusLabel", { status: t(solver.status === "active" ? "solverDetail.status.active" : "solverDetail.status.inactive") })}
                 >
-                  {solver.status === "active" ? "Active" : "Inactive"}
+                  {t(solver.status === "active" ? "solverDetail.status.active" : "solverDetail.status.inactive")}
                 </div>
               </div>
 
               <div className="text-xs sm:text-sm text-vx-muted font-mono break-all">
-                Address: {params.address}
+                {t("solverDetail.address", { address: params.address })}
               </div>
 
               {/* Metrics grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                 {[
-                  { label: "Fills", value: solver.fills },
-                  { label: "Failed", value: solver.failed },
-                  { label: "Success Rate", value: `${solver.successRatePct}%` },
+                  { label: t("solverDetail.metric.fills"), value: solver.fills },
+                  { label: t("solverDetail.metric.failed"), value: solver.failed },
+                  { label: t("solverDetail.metric.successRate"), value: `${solver.successRatePct}%` },
                   {
-                    label: "Total Volume",
+                    label: t("solverDetail.metric.volume"),
                     value: usdCompact.format(solver.volumeUsd),
                   },
                   {
-                    label: "Avg Fill Time",
+                    label: t("solverDetail.metric.avgFillTime"),
                     value: `${solver.avgFillTimeSeconds}s`,
                   },
-                  { label: "Bond", value: usdCompact.format(solver.bondUsd) },
+                  { label: t("solverDetail.metric.bond"), value: usdCompact.format(solver.bondUsd) },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-vx-surface/40 rounded-lg p-3">
                     <div className="eyebrow text-[10px] sm:text-xs mb-1">
@@ -114,7 +114,7 @@ export default function SolverDetailPage({ params }: { params: { address: string
 
               {/* Chain coverage */}
               <div className="pt-3 sm:pt-4 border-t border-vx-border">
-                <h2 className="eyebrow text-xs mb-2">Supported Chains</h2>
+                <h2 className="eyebrow text-xs mb-2">{t("solverDetail.chains.title")}</h2>
                 <div className="flex flex-wrap gap-2">
                   {solver.chains.length > 0 ? (
                     solver.chains.map(chain => (
@@ -127,7 +127,7 @@ export default function SolverDetailPage({ params }: { params: { address: string
                     ))
                   ) : (
                     <span className="text-xs text-vx-muted">
-                      No chains supported yet
+                      {t("solverDetail.chains.empty")}
                     </span>
                   )}
                 </div>
@@ -147,7 +147,7 @@ export default function SolverDetailPage({ params }: { params: { address: string
             <div className="card overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-vx-border bg-vx-surface/30">
                 <h2 className="text-sm font-semibold text-vx-text">
-                  Recent Fills by Solver
+                  {t("solverDetail.fillHistory.title")}
                 </h2>
               </div>
 
@@ -162,7 +162,7 @@ export default function SolverDetailPage({ params }: { params: { address: string
                   role="alert"
                   className="p-6 sm:p-8 text-center text-sm text-vx-muted"
                 >
-                  Couldn&apos;t load fill history right now.
+                  {t("solverDetail.fillHistory.error")}
                 </div>
               ) : fillHistory.filter(item => item.solver === solver.address).length === 0 ? (
                 <div className="p-6 sm:p-8 text-center">

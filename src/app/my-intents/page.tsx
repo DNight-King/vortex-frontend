@@ -14,6 +14,7 @@ import { CHAINS } from "@/lib/marketData";
 import { buildIntentsCsv, CSV_HEADERS, downloadCsv } from "@/lib/csv";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
 import type { IntentStatus } from "@/lib/types";
+import type { MessageKey } from "@/lib/i18n";
 
 const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
   "all",
@@ -24,11 +25,18 @@ const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
 ];
 const PAGE_SIZE = 10;
 const DATE_RANGE_OPTIONS = [
-  { value: "all", label: "All time" },
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
-] as const;
+  { value: "all", label: "filters.dateRange.all" },
+  { value: "7", label: "filters.dateRange.7" },
+  { value: "30", label: "filters.dateRange.30" },
+  { value: "90", label: "filters.dateRange.90" },
+] as const satisfies readonly { value: string; label: MessageKey }[];
+const STATUS_LABEL_KEY: Record<IntentStatus | "all", MessageKey> = {
+  all: "filters.status.all",
+  pending: "intent.status.pending",
+  accepted: "intent.status.accepted",
+  filled: "intent.status.filled",
+  failed: "intent.status.failed",
+};
 type DateRange = (typeof DATE_RANGE_OPTIONS)[number]["value"];
 
 export default function MyIntentsPage() {
@@ -91,15 +99,15 @@ export default function MyIntentsPage() {
 
   return (
     <div className="min-h-screen">
-      <Nav variant="breadcrumb" label="My Intents" />
+      <Nav variant="breadcrumb" label={t("nav.myIntents")} />
 
       <main id="main-content" className="max-w-5xl mx-auto px-5 py-12">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <div className="eyebrow mb-3">Swap History</div>
-            <h1 className="text-3xl font-bold text-vx-text mb-3">My Intents</h1>
+            <div className="eyebrow mb-3">{t("myIntents.eyebrow")}</div>
+            <h1 className="text-3xl font-bold text-vx-text mb-3">{t("myIntents.title")}</h1>
             <p className="text-vx-muted text-sm max-w-lg leading-relaxed">
-              All swap intents submitted from your connected wallet.
+              {t("myIntents.description")}
             </p>
           </div>
           {isConnected && (
@@ -112,16 +120,16 @@ export default function MyIntentsPage() {
 
         {!isConnected ? (
           <EmptyState
-            message="Connect your wallet to view your swap history."
+            message={t("myIntents.connectPrompt")}
             action={<ConnectWalletButton />}
           />
         ) : (
           <>
             {/* Filters */}
             <fieldset className="flex flex-wrap items-center gap-2 mb-6 border-0 p-0">
-              <legend className="sr-only">Filter intents</legend>
+              <legend className="sr-only">{t("filters.legend")}</legend>
               <label htmlFor="my-status-filter">
-                <span className="sr-only">Filter by status</span>
+                <span className="sr-only">{t("filters.status.label")}</span>
                 <select
                   id="my-status-filter"
                   value={statusFilter}
@@ -132,23 +140,21 @@ export default function MyIntentsPage() {
                 >
                   {STATUS_OPTIONS.map((s) => (
                     <option key={s} value={s}>
-                      {s === "all"
-                        ? "All statuses"
-                        : s.charAt(0).toUpperCase() + s.slice(1)}
+                      {t(STATUS_LABEL_KEY[s])}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label htmlFor="my-chain-filter">
-                <span className="sr-only">Filter by chain</span>
+                <span className="sr-only">{t("filters.chain.label")}</span>
                 <select
                   id="my-chain-filter"
                   value={chainFilter}
                   onChange={(e) => setChainFilter(e.target.value)}
                   className="bg-vx-surface border border-vx-border rounded-lg px-3 py-2 text-sm text-vx-text"
                 >
-                  <option value="all">All chains</option>
+                  <option value="all">{t("filters.chain.all")}</option>
                   {CHAINS.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -158,16 +164,16 @@ export default function MyIntentsPage() {
               </label>
 
               <label htmlFor="my-date-range-filter">
-                <span className="sr-only">Filter by date range</span>
+                <span className="sr-only">{t("filters.dateRange.label")}</span>
                 <select
                   id="my-date-range-filter"
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value as DateRange)}
                   className="bg-vx-surface border border-vx-border rounded-lg px-3 py-2 text-sm text-vx-text"
-                  aria-label="Filter intents by date range"
+                  aria-label={t("filters.dateRange.aria")}
                 >
                   {DATE_RANGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                    <option key={o.value} value={o.value}>{t(o.label)}</option>
                   ))}
                 </select>
               </label>
@@ -178,17 +184,17 @@ export default function MyIntentsPage() {
                 disabled={filtered.length === 0 || selectedColumns.length === 0}
                 className="ml-auto px-3 py-2 rounded-lg border border-vx-border text-xs font-semibold text-vx-muted hover:text-vx-text hover:border-vx-sage/40 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-vx-border disabled:hover:text-vx-muted"
               >
-                Export CSV
+                {t("filters.exportCsv")}
               </button>
 
               <span className="text-xs text-vx-muted ml-auto" aria-live="polite" aria-atomic="true">
-                {filtered.length} intent{filtered.length === 1 ? "" : "s"}
+                {t(filtered.length === 1 ? "filters.count.one" : "filters.count.other", { count: filtered.length })}
               </span>
             </fieldset>
 
             {isConnected && (
               <fieldset className="flex flex-wrap items-center gap-3 mb-6 border-0 p-0">
-                <legend className="text-xs text-vx-muted mb-1">Export columns</legend>
+                <legend className="text-xs text-vx-muted mb-1">{t("myIntents.exportColumns")}</legend>
                 {CSV_HEADERS.map((col) => (
                   <label key={col} className="flex items-center gap-1.5 text-xs text-vx-muted">
                     <input
@@ -205,7 +211,7 @@ export default function MyIntentsPage() {
             {/* List */}
             {isLoading ? (
               <div className="space-y-2">
-                <p role="status" className="sr-only">Loading your intents...</p>
+                <p role="status" className="sr-only">{t("myIntents.loading")}</p>
                 <div aria-hidden="true" className="space-y-2">
                   {[0, 1, 2, 3].map((i) => (
                     <div key={i} className="h-14 bg-vx-surface/40 rounded-lg border border-vx-line animate-pulse" />
@@ -214,13 +220,13 @@ export default function MyIntentsPage() {
               </div>
             ) : error ? (
               <div role="alert" className="card p-8 text-center text-sm text-vx-muted">
-                <p className="mb-4">Couldn&apos;t load intents right now. Try again shortly.</p>
+                <p className="mb-4">{t("myIntents.error")}</p>
                 <button
                   type="button"
                   onClick={() => mutate()}
                   className="inline-block px-4 py-2 rounded-lg border border-vx-sage/40 text-vx-text text-sm hover:border-vx-sage/70 transition-colors focus:outline-none focus:ring-2 focus:ring-vx-sage focus:ring-offset-2 focus:ring-offset-vx-ink"
                 >
-                  Retry
+                  {t("common.retry")}
                 </button>
               </div>
             ) : intents.length === 0 ? (
@@ -274,7 +280,7 @@ export default function MyIntentsPage() {
                             {item.srcAmount} {item.srcToken} → {item.dstToken}
                           </div>
                           <div className="text-xs text-vx-muted capitalize">
-                            {item.srcChain} · via {item.solver}
+                            {t("activityFeed.item.route", { chain: item.srcChain, solver: item.solver })}
                           </div>
                           <IntentStatusBadge status={item.status} />
                         </Link>
@@ -285,7 +291,7 @@ export default function MyIntentsPage() {
                             onClick={() => setExpandedId(isExpanded ? null : item.id)}
                             aria-expanded={isExpanded}
                             aria-controls={`intent-details-${item.id}`}
-                            aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                            aria-label={isExpanded ? t("myIntents.details.collapse") : t("myIntents.details.expand")}
                             className="p-1.5 rounded-md text-vx-muted hover:text-vx-text hover:bg-vx-surface transition-colors"
                           >
                             <span
@@ -304,33 +310,33 @@ export default function MyIntentsPage() {
                           className="px-4 pb-4 pt-0 border-t border-vx-line/60 text-sm space-y-3"
                         >
                           {expandedLoading ? (
-                            <div className="text-xs text-vx-muted pt-3">Loading details…</div>
+                            <div className="text-xs text-vx-muted pt-3">{t("myIntents.details.loading")}</div>
                           ) : expandedError ? (
                             <div role="alert" className="text-xs text-vx-muted pt-3">
-                              Couldn&apos;t load details right now.
+                              {t("myIntents.details.error")}
                             </div>
                           ) : expandedIntent ? (
                             <div className="grid sm:grid-cols-2 gap-3 pt-3">
                               <div className="bg-vx-surface/40 rounded-lg p-3">
-                                <div className="eyebrow mb-1">Minimum out</div>
+                                <div className="eyebrow mb-1">{t("intentDetail.field.minOut")}</div>
                                 <div className="text-xs text-vx-text num">
                                   {expandedIntent.minOut} {expandedIntent.dstToken}
                                 </div>
                               </div>
                               <div className="bg-vx-surface/40 rounded-lg p-3">
-                                <div className="eyebrow mb-1">Destination address</div>
+                                <div className="eyebrow mb-1">{t("intentDetail.field.dstAddress")}</div>
                                 <div className="text-xs text-vx-text num truncate">{expandedIntent.dstAddress}</div>
                               </div>
                               {expandedIntent.txHash && (
                                 <div className="bg-vx-surface/40 rounded-lg p-3 sm:col-span-2">
-                                  <div className="eyebrow mb-1">Transaction hash</div>
+                                  <div className="eyebrow mb-1">{t("myIntents.details.txHash")}</div>
                                   <div className="text-xs text-vx-text num truncate">{expandedIntent.txHash}</div>
                                 </div>
                               )}
                             </div>
                           ) : null}
                           <Link href={`/explore/${item.id}`} className="inline-block text-xs text-vx-sage hover:underline">
-                            View full details →
+                            {t("myIntents.details.viewFull")}
                           </Link>
                         </div>
                       )}
@@ -350,10 +356,10 @@ export default function MyIntentsPage() {
                   className="px-3 py-1.5 text-xs rounded-lg border border-vx-border text-vx-muted
                              hover:text-vx-text hover:border-vx-sage/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
-                  Previous
+                  {t("pagination.previous")}
                 </button>
                 <span className="text-xs text-vx-muted num">
-                  Page {page} of {pageCount}
+                  {t("pagination.status", { page, pageCount })}
                 </span>
                 <button
                   type="button"
@@ -362,7 +368,7 @@ export default function MyIntentsPage() {
                   className="px-3 py-1.5 text-xs rounded-lg border border-vx-border text-vx-muted
                              hover:text-vx-text hover:border-vx-sage/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
-                  Next
+                  {t("pagination.next")}
                 </button>
               </div>
             )}

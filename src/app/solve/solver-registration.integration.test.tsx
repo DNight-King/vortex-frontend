@@ -26,7 +26,8 @@ vi.mock("@stellar/freighter-api", () => ({
 
 import { useWalletStore } from "@/store/wallet";
 import { ToastViewport } from "@/components/ToastViewport";
-import SolvePage from "./page";
+import SolvePage from "./SolvePageClient";
+import { en } from "@/lib/i18n/messages/en";
 
 const initialWalletState = useWalletStore.getState();
 const SOLVER_ADDRESS =
@@ -78,12 +79,12 @@ describe("solve page solver-registration flow (integration)", () => {
     const user = userEvent.setup();
     renderSolvePage();
 
-    await user.click(screen.getByRole("tab", { name: "register" }));
+    await user.click(screen.getByRole("tab", { name: en["solve.tabs.register"] }));
     await user.type(screen.getByLabelText(/stellar address/i), SOLVER_ADDRESS);
     await user.type(screen.getByLabelText(/bond amount/i), "100");
 
     await user.click(
-      screen.getByRole("button", { name: "Connect Freighter to Register" }),
+      screen.getByRole("button", { name: en["solve.register.button.connect"] }),
     );
 
     await waitFor(() => {

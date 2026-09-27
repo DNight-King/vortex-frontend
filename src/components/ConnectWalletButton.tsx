@@ -69,7 +69,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
         <button
           type="button"
           onClick={disconnect}
-          aria-label={`Disconnect wallet ${truncateAddress(address)}`}
+          aria-label={t("wallet.disconnect.aria", { address: truncateAddress(address) })}
           className={`${baseClass} border-vx-sage/40 text-vx-text hover:border-vx-sage/70 hover:text-red-300 focus-visible:text-red-300 group`}
         >
           <span
@@ -86,34 +86,22 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
             aria-hidden="true"
             className="hidden group-hover:inline group-focus-visible:inline"
           >
-            Disconnect
+            {t("wallet.disconnect.cta")}
           </span>
         </button>
 
         <QrCode
           value={address}
-          label={`QR code for wallet address ${truncateAddress(address)}`}
+          label={t("wallet.qrLabel", { address: truncateAddress(address) })}
           size={160}
         />
 
         {networkMismatch && (
           <p role="alert" className="text-xs text-yellow-400">
-            ⚠ Wrong network. Switch Freighter to <span className="font-semibold">{config.network}</span>.
+            {t("wallet.wrongNetwork", { network: config.network })}
           </p>
         )}
       </div>
-    );
-  }
-
-  if (wasSessionCleared && !address && !isConnected) {
-    return (
-      <button
-        type="button"
-        onClick={handleConnect}
-        className={`${baseClass} border-vx-border text-vx-muted hover:border-vx-sage/30 hover:text-vx-text disabled:opacity-60 disabled:cursor-wait`}
-      >
-        Reconnect {truncateAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ23456")}
-      </button>
     );
   }
 
@@ -123,7 +111,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
         href={FREIGHTER_INSTALL_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Install the Freighter browser extension"
+        aria-label={t("wallet.install.aria")}
         className={`${baseClass} border-vx-border text-vx-muted hover:border-vx-sage/30 hover:text-vx-text`}
       >
         {!compact && (
@@ -148,7 +136,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
             />
           </svg>
         )}
-        Install Freighter
+        {t("wallet.install.cta")}
       </a>
     );
   }
@@ -157,7 +145,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
   // reconnect and show which address we last saw.
   const reconnectLabel =
     !isConnected && wasSessionCleared && lastKnownAddress
-      ? `Reconnect ${truncateAddress(lastKnownAddress)}`
+      ? t("wallet.reconnect", { address: truncateAddress(lastKnownAddress) })
       : null;
 
   return (
@@ -178,7 +166,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
           >
             <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" strokeDasharray="28" strokeDashoffset="8" />
           </svg>
-          <span>Connecting</span>
+          <span>{t("wallet.connect.connectingLabel")}</span>
           <span aria-hidden="true" className="inline-flex gap-0.5 items-end h-4">
             <span className="w-0.5 h-0.5 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
             <span className="w-0.5 h-0.5 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
@@ -209,7 +197,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
               />
             </svg>
           )}
-          {reconnectLabel ?? (error ? "Retry Connection" : "Connect Freighter")}
+          {reconnectLabel ?? (error ? t("wallet.connect.retry") : t("wallet.connect.cta"))}
         </>
       )}
     </button>
