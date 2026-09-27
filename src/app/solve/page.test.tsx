@@ -200,7 +200,6 @@ describe("SolvePage", () => {
     });
 
     it("sorts the leaderboard by name, volume, fills, and success rate", async () => {
-      const baseSolver = solvers[0]!;
       const otherSolver: Solver = {
         ...solvers[0]!,
         name: "Zulu Solver",
@@ -230,7 +229,6 @@ describe("SolvePage", () => {
     });
 
     it("wraps solver rows in links to detail page", () => {
-      const baseSolver = solvers[0]!;
       useSolversMock.mockReturnValue({
         solvers,
         isLoading: false,
@@ -248,7 +246,6 @@ describe("SolvePage", () => {
     });
 
     it("ensures row links are keyboard accessible", async () => {
-      const baseSolver = solvers[0]!;
       useSolversMock.mockReturnValue({
         solvers,
         isLoading: false,
@@ -268,7 +265,6 @@ describe("SolvePage", () => {
     });
 
     it("preserves solver data in link target", () => {
-      const baseSolver = solvers[0]!;
       useSolversMock.mockReturnValue({
         solvers,
         isLoading: false,
@@ -281,7 +277,6 @@ describe("SolvePage", () => {
     });
 
     it("maintains row hover and focus states for accessibility", () => {
-      const baseSolver = solvers[0]!;
       useSolversMock.mockReturnValue({
         solvers,
         isLoading: false,

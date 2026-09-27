@@ -11,9 +11,8 @@ import { useWalletStore } from "@/store/wallet";
 import { useMyLiveIntents } from "@/hooks/useMyLiveIntents";
 import { useIntent } from "@/hooks/useIntent";
 import { CHAINS } from "@/lib/marketData";
-import { downloadCsv, buildIntentsCsv } from "@/lib/csv";
-import { SkeletonCard } from "@/components/Skeleton";
-import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
+import { buildIntentsCsv, CSV_HEADERS, downloadCsv } from "@/lib/csv";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
 import type { IntentStatus } from "@/lib/types";
 
 const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
@@ -32,34 +31,6 @@ const DATE_RANGE_OPTIONS = [
 ] as const;
 type DateRange = (typeof DATE_RANGE_OPTIONS)[number]["value"];
 
-/**
- * Build a homepage URL that pre-fills SwapCard with an intent's parameters.
- * Destination address is intentionally NOT carried over (stale/unintended
- * destination risk — the user must enter it fresh).
- */
-function swapAgainHref(item: FeedItem): string {
-  const params = new URLSearchParams({
-    srcChain: item.srcChain,
-    srcToken: item.srcToken,
-    amount: item.srcAmount,
-    dstToken: item.dstToken,
-  });
-  return `/?${params.toString()}`;
-}
-
-// On-screen row columns. `pair` and `status` and `submitted` are essential for
-// scanning the list, so they can't be hidden; `chain` and `solver` are optional.
-const MY_INTENTS_COLUMNS = ["pair", "chain", "solver", "status", "submitted"] as const;
-type MyIntentsColumn = (typeof MY_INTENTS_COLUMNS)[number];
-const ALWAYS_VISIBLE_COLUMNS: MyIntentsColumn[] = ["pair", "status", "submitted"];
-const COLUMN_LABELS: Record<MyIntentsColumn, string> = {
-  pair: "Swap",
-  chain: "Source chain",
-  solver: "Solver",
-  status: "Status",
-  submitted: "Submitted",
-};
-
 export default function MyIntentsPage() {
   const { t } = useTranslation();
   const address = useWalletStore((s) => s.address);
@@ -70,12 +41,11 @@ export default function MyIntentsPage() {
   const [statusFilter, setStatusFilter] = useState<IntentStatus | "all">("all");
   const [chainFilter, setChainFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([...CSV_HEADERS]);
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { intent: expandedIntent, isLoading: expandedLoading, error: expandedError } = useIntent(expandedId);
-
-  const isFiltered = statusFilter !== "all" || chainFilter !== "all";
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -110,9 +80,12 @@ export default function MyIntentsPage() {
     downloadCsv("vortex-my-intents.csv", exportCsv);
   };
 
+  // Keeps the selected export columns in CSV_HEADERS order.
   const toggleColumn = (column: string) => {
     setSelectedColumns((prev) =>
-      prev.includes(column) ? prev.filter((c) => c !== column) : [...CSV_HEADERS].filter((c) => c === column || prev.includes(c))
+      prev.includes(column)
+        ? prev.filter((c) => c !== column)
+        : CSV_HEADERS.filter((c) => c === column || prev.includes(c)),
     );
   };
 
@@ -285,7 +258,7 @@ export default function MyIntentsPage() {
               </div>
             ) : (
               <div data-address={address} data-testid="intents-list" className="space-y-2" role="list">
-                {filtered.map((item) => {
+                {paginated.map((item) => {
                   const isExpanded = expandedId === item.id;
                   return (
                     <div

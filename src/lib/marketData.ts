@@ -1,5 +1,11 @@
 import type { Chain, Token } from "@/lib/types";
 
+/**
+ * The date the hardcoded token prices below were last updated (ISO 8601).
+ * Shown in the "estimated" badge until a live quote replaces the value.
+ */
+export const PRICES_AS_OF = "2026-08-30";
+
 export const CHAINS = [
   { id: "ethereum",  name: "Ethereum",  shortName: "ETH",  color: "#627EEA" },
   { id: "base",      name: "Base",      shortName: "BASE", color: "#0052FF" },

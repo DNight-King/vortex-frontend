@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import { swrRetryConfig } from "@/hooks/useRetry";
 import type { Quote, QuoteRequest, QuoteErrorType } from "@/lib/types";
 
 function quoteKey(params: QuoteRequest | null): string | null {
@@ -56,5 +55,10 @@ export function useQuote(params: QuoteRequest | null) {
 
   const quoteError = error ? classifyQuoteError(error) : null;
 
-  return { quote: data, quoteFetchedAt, isLoading, error, quoteErrorType: quoteError };
+  // Re-fetch the current route's quote (e.g. after it went stale).
+  const refresh = useCallback(() => {
+    void mutate();
+  }, [mutate]);
+
+  return { quote: data, quoteFetchedAt, isLoading, error, quoteErrorType: quoteError, refresh };
 }

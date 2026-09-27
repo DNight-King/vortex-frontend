@@ -46,10 +46,13 @@ function RegistrationErrorMessage(err: unknown): string {
   return "Failed to register as a solver.";
 }
 
+/** The in-flight steps; `errorStep` is the one that was active when a registration failed. */
+export type RegistrationStep = Exclude<SolverRegistrationStatus, "idle" | "success" | "error">;
+
 export function useSolverRegistration() {
   const [status, setStatus] = useState<SolverRegistrationStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [errorStep, setErrorStep] = useState<SolverRegistrationStatus | null>(null);
+  const [errorStep, setErrorStep] = useState<RegistrationStep | null>(null);
   const stepRef = useRef<SolverRegistrationStatus>("idle");
 
   const advance = useCallback((next: SolverRegistrationStatus) => {
@@ -80,15 +83,16 @@ export function useSolverRegistration() {
       // ── #244: XDR review step ──────────────────────────────────────────────
       // Decode and validate the bond-deposit XDR before presenting it to
       // Freighter.  A decode failure or address mismatch is a hard stop.
-      setStatus("reviewing");
+      advance("reviewing");
       const decoded = decodeXdr(unsignedXdr, wallet.network);
       validateRegistrationXdr(decoded, { bondUsd, solverAddress: address });
       // ──────────────────────────────────────────────────────────────────────
 
-      setStatus("awaiting-signature");
-      const signedXdr = await walletAdapter.signTransaction(unsignedXdr, {
-        network: wallet.network ?? undefined,
-      });
+      advance("awaiting-signature");
+      const signedXdr = await walletAdapter.signTransaction(
+        unsignedXdr,
+        wallet.network ? { network: wallet.network } : {},
+      );
 
       // Defense-in-depth: verify signed XDR matches unsigned (Issue #308)
       const xdrVerification = verifySignedXdrMatches(unsignedXdr, signedXdr);
@@ -96,7 +100,7 @@ export function useSolverRegistration() {
         throw new Error(xdrVerification.error ?? "Transaction verification failed. The signed transaction does not match what was reviewed.");
       }
 
-      setStatus("submitting");
+      advance("submitting");
       await submitSolverRegistration(registrationId, signedXdr);
       await mutate("/solvers");
 
@@ -104,7 +108,10 @@ export function useSolverRegistration() {
       useToastStore.getState().addToast("Registered as a solver.", "success");
     } catch (err) {
       const message = RegistrationErrorMessage(err);
-      setErrorStep(stepRef.current);
+      const failedStep = stepRef.current;
+      setErrorStep(
+        failedStep === "idle" || failedStep === "success" || failedStep === "error" ? null : failedStep,
+      );
       advance("error");
       setError(message);
       useToastStore.getState().addToast(message, "error");

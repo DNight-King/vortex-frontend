@@ -1,18 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
 import { Footer } from "@/components/Footer";
-import { CopyButton } from "@/components/CopyButton";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
 import { Nav } from "@/components/Nav";
 import { SkeletonDetailCard } from "@/components/Skeleton";
-import { CopyButton } from "@/components/CopyButton";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIntent } from "@/hooks/useIntent";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
+import { sanitizeDisplayText } from "@/lib/textSafety";
 import { config } from "@/lib/config";
 
 const NETWORK = config.network;
@@ -39,11 +38,6 @@ export default function IntentDetailPage({
   const { copy } = useCopyToClipboard();
   const [txHashCopied, setTxHashCopied] = useState(false);
 
-  const isExpired = useMemo(() => {
-    if (!intent || intent.status !== "pending" || !intent.deadline)
-      return false;
-    return new Date(intent.deadline).getTime() <= Date.now();
-  }, [intent]);
   const isSettled = intent?.status === "filled";
 
   return (
@@ -68,10 +62,7 @@ export default function IntentDetailPage({
         </div>
 
         {isLoading ? (
-          <div className="card p-8 space-y-3">
-            <div className="h-6 w-2/3 bg-vx-surface rounded animate-pulse" />
-            <div className="h-4 w-1/3 bg-vx-surface rounded animate-pulse" />
-          </div>
+          <SkeletonDetailCard />
         ) : error ? (
           <div className="card p-8 text-center text-sm text-vx-muted">
             Couldn&apos;t find that intent. It may not exist, or the relay is

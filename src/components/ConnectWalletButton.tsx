@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { useWalletStore } from "@/store/wallet";
 import { useToastStore } from "@/store/toast";
 import { config } from "@/lib/config";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+import { truncateAddress } from "@/lib/stellarAddress";
+import { QrCode } from "./QrCode";
 
 const FREIGHTER_INSTALL_URL = "https://www.freighter.app/";
 const NETWORK_CHECK_INTERVAL_MS = 8000;
@@ -15,6 +18,8 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
     isConnected,
     isConnecting,
     error,
+    errorKey,
+    lastKnownAddress,
     networkMismatch,
     notInstalled,
     wasSessionCleared,
@@ -22,7 +27,25 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
     disconnect,
   } = useWalletStore();
 
-  const displayError = error ?? null;
+  // Pick up account or network switches made in Freighter while connected.
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const check = () => useWalletStore.getState().checkForChanges();
+    void check();
+    const intervalId = setInterval(check, NETWORK_CHECK_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", check);
+    };
+  }, [isConnected]);
 
   const handleConnect = async () => {
     await connect();
@@ -142,7 +165,7 @@ export function ConnectWalletButton({ compact = false }: { compact?: boolean }) 
       type="button"
       onClick={handleConnect}
       disabled={isConnecting}
-      title={error ?? undefined}
+      title={displayError ?? undefined}
       className={`${baseClass} border-vx-border text-vx-muted hover:border-vx-sage/30 hover:text-vx-text disabled:opacity-60 disabled:cursor-wait`}
     >
       {isConnecting ? (

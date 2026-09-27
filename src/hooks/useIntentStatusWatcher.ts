@@ -53,8 +53,8 @@ export function useIntentStatusWatcher(address: string | null) {
       pendingRef.current = [];
       flushTimerRef.current = null;
 
-      if (batch.length === 1) {
-        const item = batch[0];
+      const [item] = batch;
+      if (batch.length === 1 && item) {
         addToast(
           `${item.srcAmount} ${item.srcToken} → ${item.dstToken} is now ${item.status}`,
           item.status === "failed" ? "error" : "success",

@@ -14,7 +14,7 @@ const formatUsd = (value: number) => new Intl.NumberFormat("en-US", {
 }).format(value);
 
 function LineChart({ points }: { points: { date: string; totalVolumeUsd: number }[] }) {
-  const reducedMotion = typeof window !== "undefined" && document.documentElement.dataset.motion === "reduce";
+  const reducedMotion = typeof window !== "undefined" && document.documentElement.dataset["motion"] === "reduce";
   const width = 640;
   const height = 180;
   const padding = 24;

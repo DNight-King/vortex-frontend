@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { FeedItem, IntentStatus } from "@/lib/types";
+import type { FeedItem } from "@/lib/types";
 
 const { useWalletStoreMock, useMyLiveIntentsMock } = vi.hoisted(() => ({
   useWalletStoreMock: vi.fn(),
@@ -226,9 +226,8 @@ describe("MyIntentsPage", () => {
 
   it("shows error state with retry button when fetch fails", async () => {
     const mutateMock = vi.fn();
-    const user = userEvent.setup();
     mockWallet({ address: "GABC123", isConnected: true });
-    useMyLiveIntentsMock.mockReturnValue({ intents: [], isLoading: false, error: new Error("boom") });
+    useMyLiveIntentsMock.mockReturnValue({ intents: [], isLoading: false, error: new Error("boom"), mutate: mutateMock });
     const user = userEvent.setup();
     render(<MyIntentsPage />);
 
@@ -237,7 +236,23 @@ describe("MyIntentsPage", () => {
     expect(retryButton).toBeInTheDocument();
 
     await user.click(retryButton);
-    expect(useMyLiveIntentsMock).toHaveBeenCalled();
+    expect(mutateMock).toHaveBeenCalled();
+  });
+
+  it("paginates at 10 per page and navigates with Next/Previous", async () => {
+    mockWallet({ address: "GABC123", isConnected: true });
+    useMyLiveIntentsMock.mockReturnValue({ intents: manyIntents, isLoading: false, error: undefined });
+    const user = userEvent.setup();
+    render(<MyIntentsPage />);
+
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /USDC →/ })).toHaveLength(10);
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 
   it("shows intent count", () => {

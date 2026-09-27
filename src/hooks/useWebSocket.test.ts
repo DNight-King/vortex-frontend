@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useWebSocket } from "./useWebSocket";
 
 class MockWebSocket {
@@ -10,7 +10,7 @@ class MockWebSocket {
   onerror: (() => void) | null = null;
   onclose: (() => void) | null = null;
   closed = false;
-  readyState = WebSocket.CONNECTING;
+  readyState: number = WebSocket.CONNECTING;
 
   constructor(url: string) {
     this.url = url;
@@ -83,23 +83,6 @@ describe("useWebSocket", () => {
     expect(result.current.lastMessage).toBeNull();
   });
 
-  // Drops the newest socket and asserts the reconnect fires only once the
-  // expected backoff delay has fully elapsed.
-  const expectReconnectAfter = (expectedDelayMs: number) => {
-    const before = MockWebSocket.instances.length;
-    act(() => {
-      MockWebSocket.instances[before - 1]!.onclose?.();
-    });
-    act(() => {
-      vi.advanceTimersByTime(expectedDelayMs - 1);
-    });
-    expect(MockWebSocket.instances).toHaveLength(before);
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(MockWebSocket.instances).toHaveLength(before + 1);
-  };
-
   it("backs off exponentially across repeated failures, capped at the maximum", () => {
     vi.useFakeTimers();
     try {
@@ -134,9 +117,11 @@ describe("useWebSocket", () => {
       socket1.readyState = WebSocket.CLOSED;
       socket1.onclose?.();
 
+      // Reconnect after the first backoff delay (3000 + jitter).
       act(() => {
-        MockWebSocket.instances[MockWebSocket.instances.length - 1]!.onopen?.();
+        vi.advanceTimersByTime(4000);
       });
+      const socket2 = MockWebSocket.instances[1]!;
 
       // Connection succeeds
       socket2.readyState = WebSocket.OPEN;

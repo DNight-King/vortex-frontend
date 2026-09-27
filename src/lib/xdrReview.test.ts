@@ -11,6 +11,7 @@ import {
   decodeXdr,
   validateSwapXdr,
   validateRegistrationXdr,
+  verifySignedXdrMatches,
   XdrMismatchError,
 } from "./xdrReview";
 
@@ -62,12 +63,13 @@ describe("decodeXdr", () => {
     const result = decodeXdr(xdr, "testnet");
 
     expect(result.operationCount).toBe(1);
-    expect(result.operations[0].kind).toBe("payment");
-    if (result.operations[0].kind === "payment") {
-      expect(result.operations[0].destination).toBe(DESTINATION);
+    const [op] = result.operations;
+    expect(op?.kind).toBe("payment");
+    if (op?.kind === "payment") {
+      expect(op.destination).toBe(DESTINATION);
       // The Stellar SDK normalises amounts to 7 decimal places in stroops format.
-      expect(result.operations[0].amount).toBe("500.0000000");
-      expect(result.operations[0].asset).toBe("XLM (native)");
+      expect(op.amount).toBe("500.0000000");
+      expect(op.asset).toBe("XLM (native)");
     }
   });
 
@@ -277,5 +279,48 @@ describe("validateRegistrationXdr", () => {
         solverAddress: DESTINATION,
       })
     ).toThrow(XdrMismatchError);
+  });
+});
+
+// ─── verifySignedXdrMatches ──────────────────────────────────────────────────
+
+describe("verifySignedXdrMatches", () => {
+  const sign = (envelopeXdr: string) => {
+    const tx = TransactionBuilder.fromXDR(envelopeXdr, PASSPHRASE);
+    tx.sign(SOURCE_KP);
+    return tx.toXDR();
+  };
+
+  it("accepts a signed envelope of the same transaction", () => {
+    const unsigned = buildPaymentXdr(DESTINATION, "500");
+    expect(verifySignedXdrMatches(unsigned, sign(unsigned))).toEqual({ valid: true });
+  });
+
+  it("rejects a signed envelope of a different transaction", () => {
+    const unsigned = buildPaymentXdr(DESTINATION, "500");
+    const tampered = sign(buildPaymentXdr(OTHER_KP.publicKey(), "500"));
+    const result = verifySignedXdrMatches(unsigned, tampered);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("does not match");
+  });
+
+  it("rejects XDR that doesn't decode", () => {
+    expect(verifySignedXdrMatches("not-an-xdr", "not-an-xdr").valid).toBe(false);
+  });
+});
+
+describe("decodeXdr Soroban invocations", () => {
+  it("summarises the invoked contract, function and argument count", () => {
+    const contract = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+    const tx = new TransactionBuilder(new Account(SOURCE_KP.publicKey(), "0"), {
+      fee: "100",
+      networkPassphrase: PASSPHRASE,
+    })
+      .addOperation(Operation.invokeContractFunction({ contract, function: "deposit", args: [] }))
+      .setTimeout(300)
+      .build();
+
+    const [op] = decodeXdr(tx.toXDR(), "testnet").operations;
+    expect(op).toEqual({ kind: "soroban-invoke", contractId: contract, functionName: "deposit", argCount: 0 });
   });
 });

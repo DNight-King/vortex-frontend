@@ -8,6 +8,7 @@ const {
   addToastMock,
   decodeXdrMock,
   validateSwapXdrMock,
+  verifySignedXdrMatchesMock,
 } = vi.hoisted(() => ({
   signTransactionMock: vi.fn(),
   createIntentMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   addToastMock: vi.fn(),
   decodeXdrMock: vi.fn(),
   validateSwapXdrMock: vi.fn(),
+  verifySignedXdrMatchesMock: vi.fn(),
 }));
 
 vi.mock("@stellar/freighter-api", () => ({
@@ -29,10 +31,6 @@ vi.mock("@/lib/api", async (importOriginal) => {
     submitIntent: submitIntentMock,
   };
 });
-
-vi.mock("@/lib/xdrReview", () => ({
-  verifySignedXdrMatches: verifySignedXdrMatchesMock,
-}));
 
 vi.mock("@/store/toast", () => ({
   useToastStore: { getState: () => ({ addToast: addToastMock }) },
@@ -49,12 +47,13 @@ vi.mock("@/lib/xdrReview", () => {
   return {
     decodeXdr: decodeXdrMock,
     validateSwapXdr: validateSwapXdrMock,
+    verifySignedXdrMatches: verifySignedXdrMatchesMock,
     XdrMismatchError,
   };
 });
 
 import { useWalletStore } from "@/store/wallet";
-import { classifySwapError, useSwapSubmission } from "./useSwapSubmission";
+import { useSwapSubmission } from "./useSwapSubmission";
 
 const params = {
   srcChain: "ethereum",

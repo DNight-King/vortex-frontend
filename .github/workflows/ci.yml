@@ -39,6 +39,8 @@ jobs:
       - run: npm run check:manifest
       - run: npm run check:env
       - run: npm run check:i18n
+      - name: Typecheck (strict tsconfig, must be zero errors)
+        run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run test:coverage

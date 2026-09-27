@@ -13,9 +13,9 @@ export default defineConfig({
   testDir: "./.storybook/playwright",
   testMatch: "**/*.spec.ts",
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  forbidOnly: !!process.env["CI"],
+  retries: process.env["CI"] ? 1 : 0,
+  ...(process.env["CI"] ? { workers: 1 } : {}),
   reporter: [
     ["html", { open: "never", outputFolder: "playwright-report" }],
     ["blob"],
@@ -34,6 +34,6 @@ export default defineConfig({
   webServer: {
     command: "npx http-server storybook-static --port 6006 --gzip false",
     url: "http://localhost:6006",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env["CI"],
   },
 });

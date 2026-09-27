@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import freighterApi from "@stellar/freighter-api";
 import { config } from "@/lib/config";
+import { walletAdapter } from "@/lib/wallet";
+import { isValidStellarPublicKey } from "@/lib/stellarAddress";
+import { secureLogger } from "@/lib/secureLogging";
 
 export type WalletErrorKey =
   "wallet.error.freighterUnavailable" | "wallet.error.connectFailed";
@@ -19,12 +22,7 @@ export const PERSIST_KEY = "vortex-wallet";
 /** The network name the app expects, normalised to upper-case for comparison. */
 const EXPECTED_NETWORK = config.network.toUpperCase();
 
-function isValidPersistedState(state: unknown): state is {
-  address: string | null;
-  lastKnownAddress: string | null;
-  network: string | null;
-  isConnected: boolean;
-} {
+function isValidPersistedState(state: unknown): state is PersistedWalletState {
   if (typeof state !== "object" || state === null) {
     return false;
   }
@@ -32,39 +30,39 @@ function isValidPersistedState(state: unknown): state is {
   const obj = state as Record<string, unknown>;
 
   if (
-    typeof obj.address !== "string" &&
-    obj.address !== null &&
-    obj.address !== undefined
+    typeof obj["address"] !== "string" &&
+    obj["address"] !== null &&
+    obj["address"] !== undefined
   ) {
     return false;
   }
 
   if (
-    typeof obj.lastKnownAddress !== "string" &&
-    obj.lastKnownAddress !== null &&
-    obj.lastKnownAddress !== undefined
+    typeof obj["lastKnownAddress"] !== "string" &&
+    obj["lastKnownAddress"] !== null &&
+    obj["lastKnownAddress"] !== undefined
   ) {
     return false;
   }
 
   if (
-    typeof obj.network !== "string" &&
-    obj.network !== null &&
-    obj.network !== undefined
+    typeof obj["network"] !== "string" &&
+    obj["network"] !== null &&
+    obj["network"] !== undefined
   ) {
     return false;
   }
 
-  if (typeof obj.isConnected !== "boolean") {
+  if (typeof obj["isConnected"] !== "boolean") {
     return false;
   }
 
-  const address = obj.address;
+  const address = obj["address"];
   if (typeof address === "string" && !isValidStellarPublicKey(address)) {
     return false;
   }
 
-  const lastKnownAddress = obj.lastKnownAddress;
+  const lastKnownAddress = obj["lastKnownAddress"];
   if (
     typeof lastKnownAddress === "string" &&
     !isValidStellarPublicKey(lastKnownAddress)
@@ -81,27 +79,14 @@ export type WalletState = {
   network: string | null;
   isConnected: boolean;
   isConnecting: boolean;
-  wasSessionCleared: boolean;
   /** Generic connection error message (e.g. user declined access). */
   error: string | null;
-  errorKey: WalletErrorKey | null;
-  /**
-   * Stable i18n key for the connection error, when one applies (currently only
-   * the "Freighter not installed" case). `null` for generic/unknown failures,
-   * where `error` carries the raw message instead.
-   */
-  errorKey: WalletErrorKey | null;
   /**
    * Translation key for `error` when the failure is one we control the copy for
    * (Freighter missing, generic connect failure). `null` when `error` is a
    * pass-through message from the wallet/extension that has no translation.
    * Consumers should prefer `t(errorKey)` when it is set, else fall back to the
    * raw `error` string.
-   */
-  errorKey: WalletErrorKey | null;
-  /**
-   * Stable i18n key for the error when it maps to a known category, else null
-   * (a raw error message from Freighter is surfaced via `error` only).
    */
   errorKey: WalletErrorKey | null;
   /**
@@ -123,8 +108,12 @@ export type WalletState = {
    * use this to show an install link instead of a generic retry CTA.
    */
   notInstalled: boolean;
-  errorKey: WalletErrorKey | null;
   connect: () => Promise<void>;
+  /**
+   * Re-reads the connected account and network from Freighter so a switch
+   * made in the extension (or a network change) is picked up while connected.
+   */
+  checkForChanges: () => Promise<void>;
   disconnect: () => void;
   hydrate: () => Promise<void>;
   /**
@@ -148,7 +137,6 @@ export const useWalletStore = create<WalletState>()(
       errorKey: null,
       networkMismatch: false,
       notInstalled: false,
-      errorKey: null,
 
       connect: async () => {
         set({
@@ -271,17 +259,7 @@ export const useWalletStore = create<WalletState>()(
           const isAppConnected = await walletAdapter.isConnected();
           const allowed = isAppConnected && (await walletAdapter.isAllowed());
           if (!allowed) {
-            set({
-              address: null,
-              lastKnownAddress: get().address ?? get().lastKnownAddress,
-              network: null,
-              isConnected: false,
-              wasSessionCleared: true,
-              error: null,
-              errorKey: null,
-              networkMismatch: false,
-              notInstalled: false,
-            });
+            set(clearedSession);
             return;
           }
 
@@ -301,16 +279,7 @@ export const useWalletStore = create<WalletState>()(
             notInstalled: false,
           });
         } catch {
-          set({
-            address: null,
-            network: null,
-            isConnected: false,
-            wasSessionCleared: false,
-            error: null,
-            errorKey: null,
-            networkMismatch: false,
-            notInstalled: false,
-          });
+          set(clearedSession);
         }
       },
 
@@ -351,7 +320,17 @@ export const useWalletStore = create<WalletState>()(
     }),
     {
       name: PERSIST_KEY,
-      storage: createJSONStorage(() => localStorage),
+      // #307: never trust localStorage blindly — a tampered or outdated
+      // snapshot is dropped and the store starts from its defaults.
+      storage: createJSONStorage(() => localStorage, {
+        reviver: (key, value) => {
+          if (key === "state" && !isValidPersistedState(value)) {
+            secureLogger.warn("Persisted wallet state failed validation; using defaults");
+            return undefined;
+          }
+          return value;
+        },
+      }),
       partialize: (state): PersistedWalletState => ({
         address: state.address,
         lastKnownAddress: state.lastKnownAddress,

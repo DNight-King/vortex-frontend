@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIntentFeed } from "@/hooks/useIntentFeed";
-import { FeedSkeleton } from "@/components/Skeleton";
+import { useLiveRelativeTime } from "@/hooks/useLiveRelativeTime";
 import { timeAgo } from "@/lib/time";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
-import type { FeedItem } from "@/lib/types";
-import { SkeletonCard } from "./Skeleton";
 
 const CHAIN_COLOR: Record<string, string> = {
   ethereum: "#627EEA",
@@ -20,14 +18,14 @@ const CHAIN_COLOR: Record<string, string> = {
 /** Maximum number of activity items shown in the feed. */
 const FEED_LIMIT = 6;
 
+/** Rapid arrivals within this window are announced together ("3 new fills"). */
+const ANNOUNCE_DELAY_MS = 1500;
+
 type ActivityFeedViewProps = ReturnType<typeof useIntentFeed>;
 
 export function ActivityFeedView({ items, isLoading, error, isLive }: ActivityFeedViewProps) {
   const { t } = useTranslation();
-  const [announcement, setAnnouncement] = useState("");
-  const previousCount = useRef(items.length);
-  const pendingCount = useRef(0);
-  const announcementTimer = useRef<number | null>(null);
+  const now = useLiveRelativeTime();
 
   // ── Screen-reader announcement ────────────────────────────────────────────
   // We track how many items were present on the *previous* render so we can
@@ -67,25 +65,6 @@ export function ActivityFeedView({ items, isLoading, error, isLive }: ActivityFe
   // ── Visible items ─────────────────────────────────────────────────────────
   const visibleItems = useMemo(() => items.slice(0, FEED_LIMIT), [items]);
 
-  useEffect(() => {
-    if (items.length > previousCount.current && previousCount.current > 0) {
-      pendingCount.current += items.length - previousCount.current;
-      if (announcementTimer.current !== null) {
-        window.clearTimeout(announcementTimer.current);
-      }
-      announcementTimer.current = window.setTimeout(() => {
-        const newCount = pendingCount.current;
-        pendingCount.current = 0;
-        announcementTimer.current = null;
-        setAnnouncement(`${newCount} new fill${newCount === 1 ? "" : "s"}`);
-      }, 1500);
-      previousCount.current = items.length;
-      return undefined;
-    }
-    previousCount.current = items.length;
-    return undefined;
-  }, [items.length]);
-
   if (isLoading && items.length === 0) {
     return (
       <div className="space-y-2">
@@ -100,17 +79,21 @@ export function ActivityFeedView({ items, isLoading, error, isLive }: ActivityFe
     <div className="space-y-2">
       <div className="flex items-center gap-1.5 text-[10px] text-vx-muted px-1">
         <span aria-hidden="true" className={`state-dot ${isLive ? "bg-vx-sage" : "bg-vx-dim"}`} />
-        {isLive ? "Live" : "Polling"}
+        {isLive ? t("activityFeed.status.live") : t("activityFeed.status.polling")}
+      </div>
+
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
       </div>
 
       {/* Error / empty states */}
       {error && items.length === 0 ? (
         <div className="p-4 text-center text-xs text-vx-muted bg-vx-surface/40 rounded-lg border border-vx-line">
-          Live feed unavailable right now.
+          {t("activityFeed.error.unavailable")}
         </div>
       ) : items.length === 0 ? (
         <div className="p-4 text-center text-xs text-vx-muted bg-vx-surface/40 rounded-lg border border-vx-line">
-          No fills yet.
+          {t("activityFeed.empty")}
         </div>
       ) : null}
 
@@ -152,4 +135,9 @@ export function ActivityFeedView({ items, isLoading, error, isLive }: ActivityFe
       })}
     </div>
   );
+}
+
+/** The live fills feed, wired to the intent feed hook. */
+export function ActivityFeed() {
+  return <ActivityFeedView {...useIntentFeed()} />;
 }

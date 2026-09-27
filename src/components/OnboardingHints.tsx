@@ -98,7 +98,7 @@ export function OnboardingHints() {
   if (!step || stepIndex === null) return null;
 
   const animate =
-    typeof document !== "undefined" && document.documentElement.dataset.motion !== "reduce";
+    typeof document !== "undefined" && document.documentElement.dataset["motion"] !== "reduce";
 
   // Fall back to a centred card when the target isn't measurable.
   const cardStyle: React.CSSProperties = rect

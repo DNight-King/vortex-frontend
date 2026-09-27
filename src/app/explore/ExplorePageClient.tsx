@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
-import { SkeletonCard } from "@/components/Skeleton";
-import { EmptyState } from "@/components/EmptyState";
+import { IntentListSkeleton } from "@/components/Skeleton";
 import { useLiveIntents } from "@/hooks/useLiveIntents";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
 import { timeAgo } from "@/lib/time";
 import { CHAINS } from "@/lib/marketData";
@@ -28,6 +28,7 @@ type SortOption = (typeof SORT_OPTIONS)[number];
 const CHAIN_IDS = new Set(CHAINS.map((c) => c.id));
 const ROW_HEIGHT = 96;
 const ROW_GAP = 8;
+const SEARCH_DEBOUNCE_MS = 180;
 
 function readStatus(value: string | null): IntentStatus | "all" {
   return value && (STATUS_OPTIONS as string[]).includes(value) ? (value as IntentStatus | "all") : "all";
@@ -42,27 +43,42 @@ function readSort(value: string | null): SortOption {
 export default function ExplorePageClient() {
   const { t } = useTranslation();
   const { intents, isLoading, error, isLive } = useLiveIntents();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  // Filters live in the URL (shareable links); this page renders client-only,
+  // so the initial values are read straight from window.location.
+  const [query] = useState(() => new URLSearchParams(window.location.search));
+  const [statusFilter, setStatus] = useState(() => readStatus(query.get("status")));
+  const [chainFilter, setChain] = useState(() => readChain(query.get("chain")));
+  const [sort, setSortState] = useState(() => readSort(query.get("sort")));
 
-  const statusFilter = readStatus(searchParams.get("status"));
-  const chainFilter = readChain(searchParams.get("chain"));
-  const sort = readSort(searchParams.get("sort"));
-
-  const updateQuery = (updates: Record<string, string>) => {
-    const next = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of Object.entries(updates)) {
-      if (value === "all" || value === "newest" || value === "") next.delete(key);
-      else next.set(key, value);
-    }
+  const updateQuery = (key: string, value: string) => {
+    const next = new URLSearchParams(window.location.search);
+    if (value === "all" || value === "newest" || value === "") next.delete(key);
+    else next.set(key, value);
     const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
   };
 
-  const setStatusFilter = (value: IntentStatus | "all") => updateQuery({ status: value });
-  const setChainFilter = (value: string) => updateQuery({ chain: value });
-  const setSort = (value: SortOption) => updateQuery({ sort: value });
+  const setStatusFilter = (value: IntentStatus | "all") => {
+    setStatus(value);
+    updateQuery("status", value);
+  };
+  const setChainFilter = (value: string) => {
+    setChain(value);
+    updateQuery("chain", value);
+  };
+  const setSort = (value: SortOption) => {
+    setSortState(value);
+    updateQuery("sort", value);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(readStatus(e.target.value));
+  const handleChainChange = (e: React.ChangeEvent<HTMLSelectElement>) => setChainFilter(readChain(e.target.value));
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSort(readSort(e.target.value));
+
+  // Free-text search stays local (not a URL param) and is debounced so typing
+  // doesn't re-filter the list on every keystroke.
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const isFiltered = statusFilter !== "all" || chainFilter !== "all";
 
@@ -123,10 +139,6 @@ export default function ExplorePageClient() {
 
   const handleExportCsv = () => {
     downloadCsv("vortex-intents.csv", buildIntentsCsv(filtered));
-  };
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -224,6 +236,15 @@ export default function ExplorePageClient() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filtered.length === 0}
+            className="px-3 py-2 rounded-lg border border-vx-border text-xs font-semibold text-vx-muted hover:text-vx-text hover:border-vx-sage/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-vx-sage"
+          >
+            Export CSV
+          </button>
+
           <span className="text-xs text-vx-muted ml-auto" aria-live="polite" aria-atomic="true">
             {filtered.length} intent{filtered.length === 1 ? "" : "s"}
           </span>
@@ -261,6 +282,7 @@ export default function ExplorePageClient() {
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const item = filtered[virtualRow.index];
+                if (!item) return null;
                 return (
                   <Link
                     key={item.id}
@@ -282,7 +304,7 @@ export default function ExplorePageClient() {
                         {item.srcAmount} {item.srcToken} → {item.dstToken}
                       </div>
                       <div className="text-xs text-vx-muted capitalize">
-                        {item.srcChain} · via {item.solver}
+                        {item.srcChain} · via {sanitizeDisplayText(item.solver)}
                       </div>
                     </div>
                     <IntentStatusBadge status={item.status} />

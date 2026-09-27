@@ -6,24 +6,20 @@ import { useQuote } from "@/hooks/useQuote";
 import { useSwapSubmission } from "@/hooks/useSwapSubmission";
 import { useRecentChains } from "@/hooks/useRecentChains";
 import { useToastStore } from "@/store/toast";
-import { CHAINS, DST_TOKENS, SRC_TOKENS } from "@/lib/marketData";
+import { CHAINS, DST_TOKENS, PRICES_AS_OF, SRC_TOKENS } from "@/lib/marketData";
 import { isValidStellarPublicKey } from "@/lib/stellarAddress";
 import { formatTokenAmount } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
 import type { MessageKey } from "@/lib/i18n";
+import type { Quote, QuoteRequest } from "@/lib/types";
 
 export const DEFAULT_SLIPPAGE_PCT = 0.5;
 export const HIGH_PRICE_IMPACT_THRESHOLD_PCT = 3;
-export const STALE_QUOTE_THRESHOLD_MS = 60_000;
-
 // A quote older than this is considered stale and must refresh before submit.
 export const STALE_QUOTE_THRESHOLD_MS = 30_000;
 
 // How long the "quote changed" delta indicator stays on screen after a refresh.
 const QUOTE_DELTA_TTL_MS = 4000;
-
-// A quote older than this must refresh before a submit is allowed.
-export const STALE_QUOTE_THRESHOLD_MS = 30_000;
 
 const SUBMISSION_LABEL_KEY: Record<string, MessageKey> = {
   connecting: "swap.submit.connecting",
@@ -80,18 +76,22 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
   const { t } = useTranslation();
 
   const [srcChain, setSrcChain] = useState("ethereum");
-  const [srcToken, setSrcToken] = useState(SRC_TOKENS.ethereum![0]!);
+  const [srcToken, setSrcToken] = useState(SRC_TOKENS["ethereum"]![0]!);
   const [dstToken, setDstToken] = useState(DST_TOKENS[0]!);
   const [srcAmount, setSrcAmount] = useState(initialAmount);
   const [dstAddress, setDstAddress] = useState("");
   const [slippagePct, setSlippagePct] = useState(String(DEFAULT_SLIPPAGE_PCT));
   const [showChainPicker, setShowChainPicker] = useState(false);
   const [showTokenPicker, setShowTokenPicker] = useState(false);
+  const [pastedAddress, setPastedAddress] = useState<string | null>(null);
+  const [showPasteConfirmation, setShowPasteConfirmation] = useState(false);
+  const { recentChains, addRecentChain } = useRecentChains();
 
   const chainToggleRef = useRef<HTMLButtonElement>(null);
   const chainPickerRef = useRef<HTMLDivElement>(null);
   const tokenToggleRef = useRef<HTMLButtonElement>(null);
   const tokenPickerRef = useRef<HTMLDivElement>(null);
+  const dstAddressInputRef = useRef<HTMLInputElement>(null);
 
   const chain = CHAINS.find(c => c.id === srcChain) ?? CHAINS[0]!;
 
@@ -124,6 +124,40 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
     }
   };
 
+  const handleSelectChain = (chainId: string) => {
+    setSrcChain(chainId);
+    const nextToken = SRC_TOKENS[chainId]?.[0];
+    if (nextToken) setSrcToken(nextToken);
+    addRecentChain(chainId); // #284 – record recency
+    closeChainPicker();
+  };
+
+  // ── Token picker helpers ───────────────────────────────────────────────────
+  const closeTokenPicker = () => {
+    setShowTokenPicker(false);
+    tokenToggleRef.current?.focus();
+  };
+
+  const handleTokenPickerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeTokenPicker();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const focusable = tokenPickerRef.current?.querySelectorAll<HTMLButtonElement>("button");
+    if (!focusable || focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+  };
+
   useEffect(() => {
     if (showChainPicker) {
       chainPickerRef.current
@@ -134,7 +168,14 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
 
   const debouncedAmount = useDebouncedValue(srcAmount, 500);
   const hasAmount = Boolean(debouncedAmount) && parseFloat(debouncedAmount) > 0;
-  const { quote: fetchedQuote, isLoading: quoteIsLoading, error: quoteError, quoteFetchedAt } = useQuote(
+  const {
+    quote: fetchedQuote,
+    isLoading: quoteIsLoading,
+    error: quoteError,
+    quoteErrorType,
+    quoteFetchedAt,
+    refresh: refreshQuote,
+  } = useQuote(
     hasAmount && !previewQuote
       ? {
           srcChain,
@@ -147,8 +188,30 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
 
   const quote = previewQuote ?? fetchedQuote;
   const quoting = previewQuote ? false : quoteIsLoading;
-  const quoteErrorType: { kind: "no-solver" | "generic" } | null = quoteError
-    ? { kind: /no[_ ]solver/i.test(quoteError.message ?? "") ? "no-solver" : "generic" }
+
+  // Re-render once a second so the stale-quote countdown/expiry stays accurate,
+  // but stop ticking while the tab is hidden to avoid wasted work in the background.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!quoteFetchedAt || previewQuote) return;
+    const tick = () => setNow(Date.now());
+    const interval = setInterval(() => {
+      if (!document.hidden) tick();
+    }, 1000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [quoteFetchedAt, previewQuote]);
+
+  const quoteAgeMs = quoteFetchedAt ? now - quoteFetchedAt : 0;
+  const quoteIsStale = !previewQuote && Boolean(quoteFetchedAt) && quoteAgeMs >= STALE_QUOTE_THRESHOLD_MS;
+  const quoteExpiresInSeconds = quoteFetchedAt
+    ? Math.max(0, Math.ceil((STALE_QUOTE_THRESHOLD_MS - quoteAgeMs) / 1000))
     : null;
 
   // === "Quote changed" delta indicator (#297)
@@ -198,18 +261,8 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
   const parsedSlippagePct = Math.max(0, Math.min(50, parseFloat(slippagePct) || 0));
   const minOut = dstAmount > 0 ? (dstAmount * (1 - parsedSlippagePct / 100)).toFixed(dstToken.symbol === "XLM" ? 2 : 4) : "0";
   const hasHighPriceImpact = quote ? quote.priceImpactPct > HIGH_PRICE_IMPACT_THRESHOLD_PCT : false;
-
-  const quoteErrorType = (() => {
-    if (!quoteError) return null;
-    const message = quoteError instanceof Error ? quoteError.message : String(quoteError);
-    const lowered = message.toLowerCase();
-    if (lowered.includes("no solver") || lowered.includes("no_solver") || lowered.includes("no solver found")) {
-      return { kind: "no-solver" as const };
-    }
-    return { kind: "generic" as const };
-  })();
-
-  const quoteErrorType = quoteError as { kind?: string } | null | undefined;
+  // #285 – badge the USD value as an estimate while it comes from static prices.
+  const showPriceEstimateNotice = !quote && srcValueUSD > 0;
 
   // ── Submission ─────────────────────────────────────────────────────────────
   const submission = useSwapSubmission();
@@ -219,7 +272,8 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
     parseFloat(srcAmount) > 0 &&
     !quoting &&
     !isSubmitting &&
-    !dstAddressError;
+    !dstAddressError &&
+    !quoteIsStale;
 
   function truncateToDecimals(value: string, decimals: number): string {
     const dotIndex = value.indexOf(".");
@@ -257,7 +311,6 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
   };
 
   const handleSubmit = () => {
-    setHasAttemptedSubmit(true);
     if (onPreviewSubmit) {
       onPreviewSubmit({
         srcChain,
@@ -298,6 +351,7 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
           role="dialog"
           aria-modal="true"
           aria-label={t("swap.chainPicker.title")}
+          onKeyDown={handleChainPickerKeyDown}
           className="absolute top-0 left-0 right-0 z-20 bg-vx-card border border-vx-border rounded-xl p-3 shadow-2xl animate-fade-up"
         >
           <div className="eyebrow mb-3 px-1">{t("swap.chainPicker.title")}</div>
@@ -340,12 +394,7 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
               <button
                 key={c.id}
                 type="button"
-                onClick={() => {
-                  setSrcChain(c.id);
-                  const nextToken = SRC_TOKENS[c.id]?.[0];
-                  if (nextToken) setSrcToken(nextToken);
-                  closeChainPicker();
-                }}
+                onClick={() => handleSelectChain(c.id)}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all ${
                   srcChain === c.id
                     ? "border-vx-sage/40 bg-vx-sage-bg text-vx-sage"
@@ -396,9 +445,10 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
             </label>
             <input
               id="src-amount"
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={srcAmount}
-              onChange={e => setSrcAmount(e.target.value)}
+              onChange={e => handleAmountChange(e.target.value)}
               placeholder={t("swap.from.amountPlaceholder")}
               className="input-swap flex-1"
             />
@@ -613,7 +663,33 @@ export function SwapCard({ initialAmount = "", previewQuote, onPreviewSubmit }: 
             aria-describedby={dstAddressError ? "dst-address-error" : undefined}
             className="w-full bg-vx-surface border border-vx-border rounded-lg px-3 py-2.5 text-sm text-vx-text placeholder-vx-dim/60 focus:outline-none focus:border-vx-sage/50 transition-colors"
           />
-          {dstAddressError && <p id="dst-address-error" role="alert" className="text-[11px] text-red-400">{dstAddressError}</p>}
+          {showPasteConfirmation && pastedAddress && (
+            <div className="mt-2 p-3 bg-amber-500/10 border border-amber-400/30 rounded-lg space-y-2">
+              <p className="text-xs text-amber-400/90">{t("swap.destination.paste.prompt")}</p>
+              <p className="text-xs font-mono text-vx-text break-all bg-vx-surface/50 p-2 rounded">
+                {pastedAddress.slice(0, 16)}...{pastedAddress.slice(-16)}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={confirmPastedAddress}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs font-medium transition-colors"
+                >
+                  {t("swap.destination.paste.confirm")}
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissPasteConfirmation}
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-vx-border hover:border-vx-sage/40 text-vx-muted hover:text-vx-text text-xs font-medium transition-colors"
+                >
+                  {t("swap.destination.paste.dismiss")}
+                </button>
+              </div>
+            </div>
+          )}
+          {dstAddressError && !showPasteConfirmation && (
+            <p id="dst-address-error" role="alert" className="text-[11px] text-red-400">{dstAddressError}</p>
+          )}
         </div>
 
         {quote && srcAmount && (

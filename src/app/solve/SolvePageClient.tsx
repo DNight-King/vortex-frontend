@@ -1,28 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { SkeletonCard } from "@/components/Skeleton";
+import { SubmissionStepper } from "@/components/SubmissionStepper";
 import { useSolvers } from "@/hooks/useSolvers";
 import { useOpenIntents } from "@/hooks/useOpenIntents";
 import { useAcceptIntent } from "@/hooks/useAcceptIntent";
 import { useSolverRegistration } from "@/hooks/useSolverRegistration";
+import type { SolverRegistrationStatus } from "@/hooks/useSolverRegistration";
 import { useLocalStorageDraft } from "@/hooks/useLocalStorageDraft";
 import { useWalletStore } from "@/store/wallet";
 import { timeRemaining } from "@/lib/time";
 import { isValidStellarPublicKey } from "@/lib/stellarAddress";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
 import type { MessageKey } from "@/lib/i18n";
-import { formatCurrency } from "@/lib/format";
 import { sanitizeDisplayText } from "@/lib/textSafety";
-import Link from "next/link";
-
-const TABS = ["leaderboard", "intents", "register"] as const;
-type Tab = (typeof TABS)[number];
 
 const MIN_BOND_USD = 50;
+
+const TAB_LABEL_KEY = {
+  leaderboard: "solve.tabs.leaderboard",
+  intents: "solve.tabs.intents",
+  register: "solve.tabs.register",
+} as const satisfies Record<string, MessageKey>;
 const ONBOARDING_DISMISSED_KEY = "vortex_solver_onboarding_dismissed";
+
+/** Button label for each in-flight registration status. */
+const REGISTRATION_LABEL_KEY: Partial<Record<SolverRegistrationStatus, MessageKey>> = {
+  connecting: "solve.register.states.connecting",
+  building: "solve.register.states.building",
+  reviewing: "solve.register.states.reviewing",
+  "awaiting-signature": "solve.register.states.awaitingSignature",
+  submitting: "solve.register.states.submitting",
+};
+
+type SortKey = "fills" | "volumeUsd" | "avgFillTimeSeconds" | "successRatePct";
+type SortDir = "asc" | "desc" | "none";
 
 /** Shape of the persisted registration draft. */
 type RegistrationDraft = {
@@ -36,11 +52,27 @@ function usdCompact(amount: number) {
   return `$${amount}`;
 }
 
-function formatTimeRemaining(deadlineStr: string): string {
-  const ms = new Date(deadlineStr).getTime() - Date.now();
-  if (ms <= 0) return "0m";
-  const mins = Math.ceil(ms / 60_000);
-  return `${mins}m`;
+function SortIcon({ direction }: { direction: SortDir }) {
+  return (
+    <svg aria-hidden="true" className="w-3 h-3 flex-shrink-0" viewBox="0 0 12 12" fill="none">
+      {/* Up arrow */}
+      <path
+        d="M6 2L4 5h4L6 2z"
+        fill={direction === "asc" ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={direction === "asc" ? 0 : 1}
+        opacity={direction === "asc" ? 1 : 0.3}
+      />
+      {/* Down arrow */}
+      <path
+        d="M6 10L4 7h4L6 10z"
+        fill={direction === "desc" ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={direction === "desc" ? 0 : 1}
+        opacity={direction === "desc" ? 1 : 0.3}
+      />
+    </svg>
+  );
 }
 
 export default function SolvePageClient() {
@@ -49,8 +81,8 @@ export default function SolvePageClient() {
   const { solvers, isLoading: solversLoading, error: solversError } = useSolvers();
   const { intents: openIntents, isLoading: intentsLoading, error: intentsError } = useOpenIntents();
   const { accept, acceptingId, error: acceptError } = useAcceptIntent();
-  const { register, status: regStatus, error: regError, reset } =
-    useSolverRegistration();
+  const registration = useSolverRegistration();
+  const { register, reset, status: regStatus } = registration;
 
   // Draft persistence — scoped to the currently connected wallet so that
   // switching wallets never silently restores the wrong address.
@@ -73,15 +105,15 @@ export default function SolvePageClient() {
     setDraft({ address, bond: value });
   };
 
-  const registration = useSolverRegistration();
-  const isRegistering = registration.status in REGISTRATION_LABEL_KEY;
+  const registeringLabelKey = REGISTRATION_LABEL_KEY[regStatus];
+  const isRegistering = registeringLabelKey !== undefined;
 
   // Clear draft after successful submission.
   useEffect(() => {
-    if (registration.status === "success") {
+    if (regStatus === "success") {
       clearDraft();
     }
-  }, [registration.status, clearDraft]);
+  }, [regStatus, clearDraft]);
 
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -115,17 +147,19 @@ export default function SolvePageClient() {
   const canRegister =
     Boolean(address) && Boolean(bond) && !addressError && !bondError && !isRegistering && !networkMismatch;
 
-  const sortedSolvers = [...solvers].sort((a, b) => {
-    if (!sortKey || sortDir === "none") return 0;
-    const aVal = a[sortKey];
-    const bVal = b[sortKey];
-    // Stable numeric comparison
-    if (typeof aVal === "number" && typeof bVal === "number") {
-      return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-    }
-    return 0;
-  });
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("none");
 
+  const sortedSolvers = useMemo(
+    () =>
+      [...solvers].sort((a, b) => {
+        if (!sortKey || sortDir === "none") return 0;
+        return sortDir === "asc" ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey];
+      }),
+    [solvers, sortKey, sortDir],
+  );
+
+  // Cycles a column through ascending → descending → unsorted.
   const handleSort = (key: SortKey) => {
     if (sortKey !== key) {
       setSortKey(key);
@@ -140,60 +174,7 @@ export default function SolvePageClient() {
     }
   };
 
-  const sortedSolvers = useMemo(() => {
-    return [...solvers].sort((a, b) => {
-      if (sortField === "name") {
-        return sortDirection === "asc"
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
-      }
-      if (sortField === "volume") {
-        return sortDirection === "asc"
-          ? a.volumeUsd - b.volumeUsd
-          : b.volumeUsd - a.volumeUsd;
-      }
-      if (sortField === "fills") {
-        return sortDirection === "asc" ? a.fills - b.fills : b.fills - a.fills;
-      }
-      if (sortField === "success") {
-        return sortDirection === "asc"
-          ? a.successRatePct - b.successRatePct
-          : b.successRatePct - a.successRatePct;
-      }
-      return 0;
-    });
-  }, [solvers, sortField, sortDirection]);
-
-  const handleSort = (field: "name" | "volume" | "fills" | "success") => {
-    if (sortField === field) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDirection(field === "name" ? "asc" : "desc");
-    }
-  };
-
-  const addressError = useMemo(() => {
-    if (!address) return submitted ? getMessage("solve.register.validation.invalidAddress") : null;
-    if (!isValidStellarPublicKey(address)) {
-      return getMessage("solve.register.validation.invalidAddress");
-    }
-    return null;
-  }, [address, submitted]);
-
-  const bondError = useMemo(() => {
-    if (!bond) return submitted ? getMessage("solve.register.validation.minimumBond", { minBond: MIN_BOND_USDC }) : null;
-    const num = parseFloat(bond);
-    if (isNaN(num) || num < MIN_BOND_USDC) {
-      return getMessage("solve.register.validation.minimumBond", { minBond: MIN_BOND_USDC });
-    }
-    return null;
-  }, [bond, submitted]);
-
-  const canSubmit = Boolean(address && bond && !addressError && !bondError);
-
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegisterSubmit = async () => {
     if (regStatus === "success") {
       reset();
       setAddress("");
@@ -201,29 +182,9 @@ export default function SolvePageClient() {
       clearDraft();
       return;
     }
-    setSubmitted(true);
-    setAddressTouched(true);
-    setBondTouched(true);
-
-    if (!canSubmit) return;
-
+    if (!canRegister) return;
     await register(address, parseFloat(bond));
   };
-
-  let submitButtonText = getMessage("solve.register.button.connect");
-  if (regStatus === "success") {
-    submitButtonText = getMessage("solve.register.button.registered");
-  } else if (regStatus === "connecting") {
-    submitButtonText = getMessage("solve.register.states.connecting");
-  } else if (regStatus === "building") {
-    submitButtonText = getMessage("solve.register.states.building");
-  } else if (regStatus === "awaiting-signature") {
-    submitButtonText = getMessage("solve.register.states.awaitingSignature");
-  } else if (regStatus === "submitting") {
-    submitButtonText = getMessage("solve.register.states.submitting");
-  }
-
-  const isBusy = ["connecting", "building", "awaiting-signature", "submitting"].includes(regStatus);
 
   return (
     <div className="min-h-screen">
@@ -232,12 +193,12 @@ export default function SolvePageClient() {
       <main id="main-content" className="max-w-5xl mx-auto px-5 py-12">
         {/* Header */}
         <div className="mb-10">
-          <div className="eyebrow mb-3">{getMessage("solve.hero.eyebrow")}</div>
+          <div className="eyebrow mb-3">{t("solve.hero.eyebrow")}</div>
           <h1 className="text-3xl font-bold text-vx-text mb-3">
-            {getMessage("solve.hero.title")}
+            {t("solve.hero.title")}
           </h1>
           <p className="text-vx-muted text-sm max-w-lg leading-relaxed">
-            {getMessage("solve.hero.description")}
+            {t("solve.hero.description")}
           </p>
         </div>
 
@@ -271,7 +232,7 @@ export default function SolvePageClient() {
         {/* Tabs */}
         <div
           role="tablist"
-          aria-label={getMessage("solve.tabs.ariaLabel")}
+          aria-label={t("solve.tabs.ariaLabel")}
           className="flex border-b border-vx-border gap-1 mb-8 overflow-x-auto"
         >
           {(["leaderboard", "intents", "register"] as const).map((tabId) => (
@@ -289,7 +250,7 @@ export default function SolvePageClient() {
                   : "text-vx-muted hover:text-vx-text"
                 }`}
             >
-              {t(`solve.tabs.${tabId}`)}
+              {t(TAB_LABEL_KEY[tabId])}
             </button>
           ))}
         </div>
@@ -305,7 +266,7 @@ export default function SolvePageClient() {
             <div className="px-3 sm:px-5 py-3 sm:py-3.5 border-b border-vx-border bg-vx-surface/30">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-vx-text">
-                  {getMessage("solve.leaderboard.title")}
+                  {t("solve.leaderboard.title")}
                 </span>
                 <div className="hidden sm:flex items-center gap-1" role="group" aria-label="Sort leaderboard">
                   {([
@@ -493,7 +454,7 @@ export default function SolvePageClient() {
               </div>
             )}
 
-            {intentsLoading && intents.length === 0 ? (
+            {intentsLoading && openIntents.length === 0 ? (
               <SkeletonCard rows={3} rowHeight="h-16" />
             ) : intentsError ? (
               <div className="p-8 text-center text-sm text-vx-muted">
@@ -505,7 +466,7 @@ export default function SolvePageClient() {
               </div>
             ) : (
               <div className="space-y-2">
-                {intents.map((intent) => (
+                {openIntents.map((intent) => (
                   <div
                     key={intent.id}
                     className="card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -558,7 +519,7 @@ export default function SolvePageClient() {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-vx-sage animate-pulse" />
                   <h3 className="text-sm font-semibold text-vx-text">
-                    {getMessage("solve.onboarding.title")}
+                    {t("solve.onboarding.title")}
                   </h3>
                 </div>
                 <button
@@ -567,41 +528,41 @@ export default function SolvePageClient() {
                   className="text-xs text-vx-sage hover:underline focus:outline-none font-medium"
                 >
                   {showOnboardingExpanded
-                    ? getMessage("solve.onboarding.dismiss")
-                    : getMessage("solve.onboarding.show")}
+                    ? t("solve.onboarding.dismiss")
+                    : t("solve.onboarding.show")}
                 </button>
               </div>
 
               <p className="text-xs text-vx-muted mb-4 leading-relaxed">
-                {getMessage("solve.onboarding.description")}
+                {t("solve.onboarding.description")}
               </p>
 
               {showOnboardingExpanded && (
                 <div className="space-y-4 pt-2 border-t border-vx-line">
                   <div className="bg-vx-surface/40 p-3.5 rounded-lg border border-vx-border/50">
                     <h4 className="text-xs font-semibold text-vx-text mb-1">
-                      {getMessage("solve.onboarding.bondTitle")}
+                      {t("solve.onboarding.bondTitle")}
                     </h4>
                     <p className="text-xs text-vx-muted leading-relaxed">
-                      {getMessage("solve.onboarding.bondBody")}
+                      {t("solve.onboarding.bondBody")}
                     </p>
                   </div>
 
                   <div className="bg-vx-surface/40 p-3.5 rounded-lg border border-vx-border/50">
                     <h4 className="text-xs font-semibold text-vx-text mb-1">
-                      {getMessage("solve.onboarding.metricsTitle")}
+                      {t("solve.onboarding.metricsTitle")}
                     </h4>
                     <p className="text-xs text-vx-muted leading-relaxed">
-                      {getMessage("solve.onboarding.metricsBody")}
+                      {t("solve.onboarding.metricsBody")}
                     </p>
                   </div>
 
                   <div className="bg-vx-surface/40 p-3.5 rounded-lg border border-vx-border/50">
                     <h4 className="text-xs font-semibold text-vx-text mb-1">
-                      {getMessage("solve.onboarding.expectationsTitle")}
+                      {t("solve.onboarding.expectationsTitle")}
                     </h4>
                     <p className="text-xs text-vx-muted leading-relaxed">
-                      {getMessage("solve.onboarding.expectationsBody")}
+                      {t("solve.onboarding.expectationsBody")}
                     </p>
                   </div>
                 </div>
@@ -625,7 +586,7 @@ export default function SolvePageClient() {
                   type="text"
                   value={address}
                   onChange={(e) => handleAddressChange(e.target.value.trim())}
-                  placeholder={getMessage("solve.register.addressPlaceholder")}
+                  placeholder={t("solve.register.addressPlaceholder")}
                   aria-invalid={Boolean(addressError)}
                   aria-describedby={
                     addressError ? "solver-address-error" : undefined
@@ -652,7 +613,7 @@ export default function SolvePageClient() {
                   type="number"
                   value={bond}
                   onChange={(e) => handleBondChange(e.target.value)}
-                  placeholder={getMessage("solve.register.bondPlaceholder")}
+                  placeholder={t("solve.register.bondPlaceholder")}
                   aria-invalid={Boolean(bondError)}
                   aria-describedby={bondError ? "solver-bond-error" : undefined}
                   className="w-full bg-vx-surface border border-vx-border rounded-lg px-3 py-2.5 text-sm text-vx-text placeholder-vx-dim/60 focus:outline-none focus:ring-2 focus:ring-vx-sage focus:border-vx-sage/50 transition-colors"
@@ -687,13 +648,13 @@ export default function SolvePageClient() {
               <button
                 type="button"
                 onClick={handleRegisterSubmit}
-                disabled={(!canSubmit && regStatus !== "success") || isBusy}
-                aria-busy={isBusy}
+                disabled={(!canRegister && regStatus !== "success") || isRegistering}
+                aria-busy={isRegistering}
                 className="w-full py-2.5 bg-vx-sage-bg text-vx-sage text-xs font-semibold rounded-lg border border-vx-sage/30 hover:bg-vx-sage/15 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {isRegistering
-                  ? t(REGISTRATION_LABEL_KEY[registration.status]!)
-                  : registration.status === "success"
+                {registeringLabelKey
+                  ? t(registeringLabelKey)
+                  : regStatus === "success"
                   ? t("solve.register.button.registered")
                   : t("solve.register.button.connect")}
               </button>

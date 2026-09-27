@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Nav } from "@/components/Nav";
-import type { WaveMetrics, ComplexityTier, IssueStatus } from "@/lib/issuesParser";
+import type { WaveMetrics } from "@/lib/issuesParser";
 
 function truncateAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr;

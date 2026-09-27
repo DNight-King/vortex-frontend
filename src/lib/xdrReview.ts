@@ -22,8 +22,9 @@ import {
   FeeBumpTransaction,
   Transaction,
   Networks,
-  Operation,
+  Address,
   Asset,
+  xdr,
 } from "@stellar/stellar-sdk";
 
 // Amount tolerance: allow up to 1 % deviation between the quoted amount and
@@ -123,43 +124,21 @@ export function decodeXdr(
         };
       }
 
-      if (op.type === "invokeHostFunction") {
-        // Best-effort: extract contract ID and function name from Soroban invocation.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invokeOp = op as any;
-        const contractId: string =
-          invokeOp?.func?.invokeContract?.contractAddress?.contractId
-            ? Buffer.from(
-                invokeOp.func.invokeContract.contractAddress.contractId
-              ).toString("hex")
-            : invokeOp?.hostFunction?.invokeContract?.contractId
-            ? Buffer.from(
-                invokeOp.hostFunction.invokeContract.contractId
-              ).toString("hex")
-            : "unknown";
-        const functionName: string =
-          invokeOp?.func?.invokeContract?.functionName ??
-          invokeOp?.hostFunction?.invokeContract?.functionName ??
-          "unknown";
-        const args: unknown[] =
-          invokeOp?.func?.invokeContract?.args ??
-          invokeOp?.hostFunction?.invokeContract?.args ??
-          [];
+      if (op.type === "invokeHostFunction" && op.func.switch() === xdr.HostFunctionType.hostFunctionTypeInvokeContract()) {
+        const call = op.func.invokeContract();
         return {
           kind: "soroban-invoke",
-          contractId,
-          functionName,
-          argCount: Array.isArray(args) ? args.length : 0,
+          contractId: Address.fromScAddress(call.contractAddress()).toString(),
+          functionName: call.functionName().toString(),
+          argCount: call.args().length,
         };
       }
 
-      // Fallback summary for any other op type.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fallbackOp = op as any;
+      // Fallback summary for any other op type (including non-invoke host functions).
       return {
         kind: "soroban-invoke",
         contractId: "unknown",
-        functionName: fallbackOp.type ?? "unknown",
+        functionName: op.type,
         argCount: 0,
       };
     }
@@ -290,4 +269,50 @@ export function validateRegistrationXdr(
       }
     }
   }
+}
+
+// ─── Signed-XDR integrity (#308) ────────────────────────────────────────────
+
+export type SignedXdrCheck = { valid: boolean; error?: string };
+
+/** The transaction body of an envelope, without its signatures, as base64. */
+function transactionBody(envelopeXdr: string): string | null {
+  try {
+    const envelope = xdr.TransactionEnvelope.fromXDR(envelopeXdr, "base64");
+    switch (envelope.switch()) {
+      case xdr.EnvelopeType.envelopeTypeTx():
+        return envelope.v1().tx().toXDR("base64");
+      case xdr.EnvelopeType.envelopeTypeTxV0():
+        return envelope.v0().tx().toXDR("base64");
+      case xdr.EnvelopeType.envelopeTypeTxFeeBump():
+        return envelope.feeBump().tx().toXDR("base64");
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Defense-in-depth against a compromised extension or a tampered postMessage
+ * bridge: the wallet may only add signatures, so the signed envelope's
+ * transaction body must be byte-for-byte the one that was reviewed.
+ */
+export function verifySignedXdrMatches(unsignedXdr: string, signedXdr: string): SignedXdrCheck {
+  const unsigned = transactionBody(unsignedXdr);
+  const signed = transactionBody(signedXdr);
+  if (unsigned === null || signed === null) {
+    return {
+      valid: false,
+      error: "Failed to decode transaction XDR. The signed transaction may be corrupted or in an unexpected format.",
+    };
+  }
+  if (unsigned !== signed) {
+    return {
+      valid: false,
+      error: "The signed transaction does not match the one you reviewed. It was not submitted.",
+    };
+  }
+  return { valid: true };
 }

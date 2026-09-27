@@ -1,6 +1,12 @@
 const STEP_ORDER = ["connecting", "building", "awaiting-signature", "submitting"] as const;
 type StepId = (typeof STEP_ORDER)[number];
-export type SubmissionStatus = "idle" | StepId | "success" | "error";
+// "reviewing" (the transaction review before signing) is shown as the Sign step.
+type InFlightStatus = StepId | "reviewing";
+export type SubmissionStatus = "idle" | InFlightStatus | "success" | "error";
+
+function stepOf(status: InFlightStatus): StepId {
+  return status === "reviewing" ? "awaiting-signature" : status;
+}
 
 const STEP_LABELS: Record<StepId, string> = {
   connecting: "Connect",
@@ -12,7 +18,7 @@ const STEP_LABELS: Record<StepId, string> = {
 export type SubmissionStepperProps = {
   status: SubmissionStatus;
   /** The step that was active when an error occurred, for the "error" status. */
-  errorStep?: StepId | null;
+  errorStep?: InFlightStatus | null;
 };
 
 /**
@@ -27,8 +33,8 @@ export function SubmissionStepper({ status, errorStep }: SubmissionStepperProps)
     status === "success"
       ? STEP_ORDER.length
       : status === "error"
-        ? STEP_ORDER.indexOf(errorStep ?? STEP_ORDER[STEP_ORDER.length - 1])
-        : STEP_ORDER.indexOf(status);
+        ? STEP_ORDER.indexOf(errorStep ? stepOf(errorStep) : "submitting")
+        : STEP_ORDER.indexOf(stepOf(status));
 
   return (
     <ol className="flex items-start gap-2" aria-label="Submission progress">
