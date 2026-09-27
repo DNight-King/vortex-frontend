@@ -8,8 +8,10 @@ import { defineConfig, devices } from "@playwright/test";
  * and compare them against baseline images to detect unintended visual changes.
  */
 export default defineConfig({
-  testDir: "./storybook-static",
-  testMatch: "**/*.stories.@(js|jsx|ts|tsx)",
+  // Visual specs and their baselines live next to the Storybook config (see
+  // .storybook/playwright/README.md); storybook-static/ is only served.
+  testDir: "./.storybook/playwright",
+  testMatch: "**/*.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

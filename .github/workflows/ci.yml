@@ -36,6 +36,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           GITHUB_ACTOR: ${{ github.actor }}
       - run: npm ci
+      - run: npm run check:manifest
       - run: npm run check:env
       - run: npm run check:i18n
       - run: npm run lint
@@ -46,6 +47,8 @@ jobs:
           name: coverage-report
           path: coverage/
       - run: npx playwright install --with-deps
+      - name: Check the e2e suite resolves
+        run: npm run test:e2e -- --list
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
