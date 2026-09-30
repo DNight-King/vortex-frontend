@@ -11,9 +11,10 @@ import { VirtualList } from "@/components/VirtualList";
 import { ExportDialog } from "@/components/ExportDialog";
 import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { HighlightedText, IntentSearchBox } from "@/components/IntentSearchBox";
 import { SavedViews } from "@/components/SavedViews";
-import { useLiveIntents } from "@/hooks/useLiveIntents";
+import { useLiveIntentsPage } from "@/hooks/useLiveIntents";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
 import { IntentListSkeleton, SkeletonCard } from "@/components/Skeleton";
@@ -61,6 +62,19 @@ export default function ExplorePageClient() {
   const range = readRange(searchParams.get("range"));
   const urlQuery = readQuery(searchParams.get("q"));
   const parsedSearch = useMemo(() => parseSearch(urlQuery), [urlQuery]);
+
+  // URL-driven filters reset the cursor; client-side filtering below still
+  // applies so the unpaginated compatibility shim behaves identically.
+  const {
+    intents,
+    isLoading,
+    error,
+    isLive,
+    hasMore = false,
+    isLoadingMore = false,
+    loadMore,
+    retry,
+  } = useLiveIntentsPage({ filters: { status: statusFilter, chain: chainFilter }, sort });
 
   const updateQuery = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -183,6 +197,13 @@ export default function ExplorePageClient() {
   useEffect(() => {
     rowVirtualizer.scrollToIndex(0);
   }, [statusFilter, chainFilter, range, urlQuery, sort, rowVirtualizer]);
+
+  // Load the next page once the virtualizer renders near the end of the list.
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
+  useEffect(() => {
+    if (hasMore && !isLoadingMore && !error && lastVirtualIndex >= filtered.length - 5) loadMore?.();
+  }, [lastVirtualIndex, filtered.length, hasMore, isLoadingMore, error, loadMore]);
 
   const handleExportCsv = () => {
     downloadCsv("vortex-intents.csv", buildIntentsCsv(filtered));
@@ -323,12 +344,9 @@ export default function ExplorePageClient() {
         <div className="focus:outline-none" {...pause.containerProps}>
         {isLoading && intents.length === 0 ? (
           <IntentListSkeleton count={4} />
-        ) : error ? (
-          <div className="card p-8 text-center">
-            <p className="text-sm font-medium text-vx-text mb-1">{t("explore.error.title")}</p>
-            <p className="text-xs text-vx-muted max-w-xs mx-auto">{t("explore.error.message")}</p>
-          </div>
-        ) : filtered.length === 0 ? (
+        ) : error && intents.length === 0 ? (
+          <ErrorState error={error} title={t("explore.error.title")} retry={retry} />
+        ) : filtered.length === 0 && !hasMore ? (
           <div className="card p-8 text-center">
             <p className="text-sm font-medium text-vx-text mb-1">{t("explore.empty.title")}</p>
             <p className="text-xs text-vx-muted max-w-xs mx-auto mb-4">{t("explore.empty.message")}</p>

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { fetcher } from "@/lib/api";
-import { swrRetryConfig } from "@/hooks/useRetry";
+import { endpoint } from "@/lib/api";
+import { quoteSchema } from "@/lib/schemas";
+
+const fetcher = endpoint(quoteSchema);
 import type { Quote, QuoteRequest, QuoteErrorType } from "@/lib/types";
 import { QUOTE_REFRESH_BACKOFF_MS, QUOTE_REFRESH_MARGIN_MS, QUOTE_TTL_MS } from "@/lib/swapConstants";
 

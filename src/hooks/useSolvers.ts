@@ -1,6 +1,8 @@
 import useSWR from "swr";
-import { fetcher } from "@/lib/api";
-import { swrRetryConfig } from "@/hooks/useRetry";
+import { endpoint } from "@/lib/api";
+import { solverListSchema } from "@/lib/schemas";
+
+const fetcher = endpoint(solverListSchema);
 import type { Solver } from "@/lib/types";
 import type { TimeWindow } from "@/lib/solverRanking";
 
@@ -19,7 +21,6 @@ export function useSolvers(window: TimeWindow = "all") {
   const { data, error, isLoading } = useSWR<Solver[]>(key, fetcher, {
     refreshInterval: 30_000,
     dedupingInterval: 30_000,
-    ...swrRetryConfig,
   });
 
   return { solvers: data ?? [], isLoading, error };

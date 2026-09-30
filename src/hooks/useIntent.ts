@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { fetcher } from "@/lib/api";
+import { endpoint, fetcher } from "@/lib/api";
+import { intentDetailSchema } from "@/lib/schemas";
 import { swrRetryConfig } from "@/hooks/useRetry";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import type { FeedItem, IntentDetail, IntentStatus } from "@/lib/types";
@@ -43,7 +44,6 @@ export function useIntent(id: string | null) {
       refreshInterval: isTerminal ? 0 : 5_000,
       dedupingInterval: 5_000,
       revalidateOnFocus: true,
-      ...swrRetryConfig,
     },
   );
 
