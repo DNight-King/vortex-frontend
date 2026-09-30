@@ -18,3 +18,4 @@ export function useWebSocket<T>(url: string | null) {
   useRealtimeTopic<T>(url, DEFAULT_TOPIC, (m) => setLastMessage(() => m));
   return { status, lastMessage, reconnect };
 }
+}
