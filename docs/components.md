@@ -136,6 +136,26 @@ Generic accessible table (`src/components/DataTable.tsx`), first used by the sol
 
 ## Solver portal (`/solve`)
 
+`SolvePageClient.tsx` went from 708 lines to about 125 and is now just the page shell: hero, steps, and the tab
+list. Each tab is its own module in `src/app/solve/_components/`:
+
+| Module | Responsibility |
+| --- | --- |
+| `LeaderboardTab` | `useSolvers`, sort state, renders `SolverRow` |
+| `OpenIntentsTab` | `useOpenIntents` + `useAcceptIntent`, renders `DeadlineChip` |
+| `RegisterSolverTab` | `useRegistrationForm` + `useSolverRegistration`, renders `SolverOnboardingChecklist` |
+| `useRegistrationForm` | reducer owning field state, validation and per-wallet draft persistence |
+| `useSolveTab` | active tab synced to `?tab=` |
+
+Data fetching stays in hooks called by each tab; `SolverRow`, `DeadlineChip` and the checklist are
+presentational. Formatting helpers (`usdCompact`, `formatTimeRemaining`) live in `src/lib/format.ts`.
+
+**Tabs** follow the WAI-ARIA tabs pattern: roving `tabIndex`, Arrow Left/Right wrap, and Home/End jump to the
+first and last tab. The URL is read after mount, so server and client render the same markup, and it is
+updated with `history.replaceState`, which adds no history entries or route transitions. **Panels are kept
+alive:** a tab mounts the first time it is shown and is then hidden rather than unmounted. That keeps each
+tab's scroll position, sort order and form input, at the cost of keeping its SWR subscriptions running.
+
 All portal state is URL-synced (`useQueryState`) so views are shareable and the back button works.
 
 - **`SolverLeaderboard`** — ranking from `rankSolvers()` (`src/lib/solverRanking.ts`): volume → fills → success rate → avg fill time → address (stable tiebreak); success rate is recomputed from fills/failed and is 0 for solvers without attempts. Time windows `24h | 7d | 30d | all` read `GET /solvers?window=…` (the relay aggregates per window). Rank deltas use the relay's `previousRank` when present, otherwise a snapshot persisted in `localStorage` per window. Filters: chain, status, min bond, verified-only. Column visibility via `useColumnVisibility`. CSV export of the visible rows/columns through the injection-safe `buildCsv`. URL keys: `window`, `sort` (`key:dir,…`), `chain`, `status`, `minBond`, `verified`.

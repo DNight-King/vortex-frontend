@@ -43,6 +43,11 @@ export default function IntentDetailPage({
     if (intent) pushRecentIntent(intent.id);
   }, [intent]);
 
+  // Only record intents that actually resolved, so recents skip deleted ids.
+  useEffect(() => {
+    if (intent) pushRecentIntent(intent.id);
+  }, [intent]);
+
   const isExpired = useMemo(() => {
     if (!intent || intent.status !== "pending" || !intent.deadline)
       return false;
