@@ -5,6 +5,7 @@ import { useRetry } from "@/hooks/useRetry";
 import { useWalletStore } from "@/store/wallet";
 import { useToastStore } from "@/store/toast";
 import type { OpenIntent } from "@/lib/types";
+import { assertWalletReady } from "@/lib/network";
 
 function AcceptErrorMessage(err: unknown): string {
   if (err instanceof ApiError && err.status === 409) {
@@ -77,9 +78,34 @@ export function useAcceptIntent() {
       } finally {
         setAcceptingId(null);
       }
-    },
-    [withRetry],
-  );
+      assertWalletReady(process.env.NEXT_PUBLIC_NETWORK ?? "testnet", wallet.network);
+      const solverAddress = wallet.address;
+
+      await mutate<OpenIntent[]>(
+        "/intents/open",
+        async (current) => {
+          await acceptIntent(intentId, solverAddress);
+          return (current ?? []).filter((intent) => intent.id !== intentId);
+        },
+        {
+          optimisticData: (current) => (current ?? []).filter((intent) => intent.id !== intentId),
+          rollbackOnError: true,
+          populateCache: true,
+          revalidate: false,
+        },
+      );
+
+      useToastStore.getState().addToast("Intent accepted — you have exclusive fill rights.", "success");
+    } catch (err) {
+      const message = AcceptErrorMessage(err);
+      setError(message);
+      useToastStore.getState().addToast(message, "error");
+    } finally {
+      setAcceptingId(null);
+    }
+  },
+  [withRetry],
+);
 
   return { accept, acceptingId, error };
 }

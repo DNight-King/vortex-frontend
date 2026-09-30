@@ -26,6 +26,8 @@ import {
   Asset,
   xdr,
 } from "@stellar/stellar-sdk";
+import { networkPassphrase } from "@/lib/network";
+import { contractSpecs } from "@/lib/contractSpecs";
 
 // Amount tolerance: allow up to 1 % deviation between the quoted amount and
 // what the relay encoded, to accommodate minor rounding in stroops conversion.
@@ -46,9 +48,7 @@ const NETWORK_PASSPHRASES: Record<string, string> = {
 };
 
 function resolvePassphrase(network: NetworkPassphrase | null | undefined): string {
-  if (!network) return Networks.TESTNET;
-  const key = network.toLowerCase();
-  return NETWORK_PASSPHRASES[key] ?? network;
+  return networkPassphrase(network);
 }
 
 // ─── Public types ───────────────────────────────────────────────────────────
@@ -67,6 +67,7 @@ export type XdrSorobanSummary = {
   functionName: string;
   /** Raw argument count. */
   argCount: number;
+  args?: Array<{ name: string; type: string; value: string }>;
 };
 export type XdrChangeTrustSummary = { kind: "change-trust"; asset: string; amount: string };
 
@@ -87,6 +88,18 @@ export type XdrReviewResult = {
   /** The inner transaction (unwrapped from fee-bump if necessary). */
   sourceAccount: string;
 };
+
+export type ReviewModel = XdrReviewResult & { memo?: string; timeBounds?: { min: number; max: number } | null; unknownOperation: boolean };
+export function buildReviewModel(decoded: XdrReviewResult): ReviewModel {
+  return { ...decoded, unknownOperation: decoded.operations.some((operation) => operation.kind === "soroban-invoke" && operation.functionName === "unknown") };
+}
+
+export type DecodedInvocation = { contractId: string; functionName: string; args: Array<{ name: string; type: string; value: string }> };
+export function decodeInvocation(summary: XdrSorobanSummary): DecodedInvocation {
+  const spec = contractSpecs.find((candidate) => candidate.contractId && candidate.contractId === summary.contractId);
+  if (!spec || !spec.functions[summary.functionName]) throw new XdrMismatchError("Unknown contract or function; signing blocked.");
+  return { contractId: summary.contractId, functionName: summary.functionName, args: (summary.args ?? []).map((arg, index) => ({ name: spec.functions[summary.functionName][index] ?? `arg${index}`, type: arg.type, value: arg.value })) };
+}
 
 // ─── Decode ─────────────────────────────────────────────────────────────────
 

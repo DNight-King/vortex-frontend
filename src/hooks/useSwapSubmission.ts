@@ -10,6 +10,7 @@ import {
 import { useWalletStore } from "@/store/wallet";
 import { useToastStore } from "@/store/toast";
 import type { QuoteRequest } from "@/lib/types";
+import { assertWalletReady } from "@/lib/network";
 
 export type SwapSubmissionStatus =
   | "idle"
@@ -123,6 +124,8 @@ export function useSwapSubmission() {
         }
       }
 
+      assertWalletReady(process.env.NEXT_PUBLIC_NETWORK ?? "testnet", wallet.network);
+
       advance("building");
       const { intentId: newIntentId, unsignedXdr } = await createIntent({
         ...params,
@@ -143,6 +146,7 @@ export function useSwapSubmission() {
       // ──────────────────────────────────────────────────────────────────────
 
       advance("awaiting-signature");
+      assertWalletReady(process.env.NEXT_PUBLIC_NETWORK ?? "testnet", useWalletStore.getState().network);
       const signedXdr = await walletAdapter.signTransaction(
         unsignedXdr,
         wallet.network ? { network: wallet.network } : undefined,

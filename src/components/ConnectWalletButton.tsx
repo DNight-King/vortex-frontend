@@ -7,6 +7,7 @@ import { useTranslation } from "@/lib/i18n/I18nProvider";
 import { truncateAddress } from "@/lib/stellarAddress";
 import { QrCode } from "@/components/QrCode";
 import { WalletModal } from "@/components/WalletModal";
+import { NetworkMismatchDialog } from "@/components/NetworkMismatchDialog";
 
 const truncate = (value: string) => value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 
