@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { CopyButton } from "@/components/CopyButton";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
 import { Nav } from "@/components/Nav";
+import { SkeletonDetailCard } from "@/components/Skeleton";
+import { useOnChainStatus } from "@/hooks/useOnChainStatus";
+import { explorerTransactionUrl } from "@/lib/chain/explorerLinks";
+import { sanitizeDisplayText } from "@/lib/textSafety";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIntent } from "@/hooks/useIntent";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
@@ -32,6 +36,7 @@ export default function IntentDetailPage({
   const { intent, isLoading, error, isLive } = useIntent(params.id);
 
   const isSettled = intent?.status === "filled";
+  const chainStatus = useOnChainStatus(intent?.txHash);
 
   return (
     <div className="min-h-screen">
@@ -97,7 +102,7 @@ export default function IntentDetailPage({
                   {intent.dstToken}
                 </h1>
               </div>
-              <IntentStatusBadge status={intent.status} />
+              <IntentStatusBadge status={intent.status} verified={chainStatus.state === "confirmed"} />
             </div>
 
             {!isSettled && (
@@ -158,6 +163,7 @@ export default function IntentDetailPage({
                 </div>
               </div>
             )}
+            {intent.txHash && <section aria-label="On-chain verification" className="rounded-lg border border-vx-border p-4"><div className="eyebrow">On-chain verification</div><p className="mt-1 text-sm">{chainStatus.state}{chainStatus.ledger ? ` at ledger ${chainStatus.ledger}` : ""}{chainStatus.resultCode ? ` (${sanitizeDisplayText(chainStatus.resultCode)})` : ""}</p>{chainStatus.state === "confirmed" && intent.status !== "filled" && <p role="alert" className="text-xs text-amber-300">Relay and on-chain statuses disagree.</p>}<a className="text-xs text-vx-sage" href={explorerTransactionUrl(intent.txHash)} target="_blank" rel="noreferrer">View verified transaction →</a></section>}
           </div>
         )}
       </main>
