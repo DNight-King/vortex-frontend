@@ -3,17 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
 import { IntentListSkeleton, SkeletonCard } from "@/components/Skeleton";
+import { VirtualList } from "@/components/VirtualList";
+import { ExportDialog } from "@/components/ExportDialog";
+import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
 import { EmptyState } from "@/components/EmptyState";
 import { HighlightedText, IntentSearchBox } from "@/components/IntentSearchBox";
 import { SavedViews } from "@/components/SavedViews";
 import { useLiveIntents } from "@/hooks/useLiveIntents";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { buildIntentsCsv, downloadCsv } from "@/lib/csv";
+import { IntentListSkeleton, SkeletonCard } from "@/components/Skeleton";
 import { useTranslation } from "@/lib/i18n/I18nProvider";
 import { timeAgo } from "@/lib/time";
 import { CHAINS } from "@/lib/marketData";
@@ -96,6 +99,22 @@ export default function ExplorePageClient() {
     router.replace(`${pathname}${viewParamsToSearch(params)}`, { scroll: false });
   };
 
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 200);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses search from anywhere on the page (unless already typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.key !== "/" || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const setStatusFilter = (value: IntentStatus | "all") => updateQuery({ status: value });
   const setChainFilter = (value: string) => updateQuery({ chain: value });
   const setSort = (value: SortOption) => updateQuery({ sort: value });
@@ -105,6 +124,11 @@ export default function ExplorePageClient() {
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSort(readSort(e.target.value));
   const handleRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     updateQuery({ range: readRange(e.target.value) });
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setStatusFilter(readStatus(e.target.value));
+  const handleChainChange = (e: React.ChangeEvent<HTMLSelectElement>) => setChainFilter(readChain(e.target.value));
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSort(readSort(e.target.value));
 
   const isFiltered = statusFilter !== "all" || chainFilter !== "all" || range !== "all" || urlQuery !== "";
 
@@ -147,6 +171,7 @@ export default function ExplorePageClient() {
 
   // Pagination is superseded by virtualization (#228): the full filtered/sorted
   // list is windowed instead of paginated, so `page` is intentionally not a URL param.
+  // Rows are measured (#444) so wrapped content at small widths is never clipped.
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -270,6 +295,8 @@ export default function ExplorePageClient() {
             </button>
           )}
 
+          <ExportDialog items={filtered} filenameBase="vortex-intents" />
+
           <LiveFeedControls
             userPaused={pause.userPaused}
             onToggle={pause.toggle}
@@ -316,51 +343,36 @@ export default function ExplorePageClient() {
             )}
           </div>
         ) : (
-          <div
-            ref={scrollRef}
-            onScroll={(event) => pause.setScrolledAway(event.currentTarget.scrollTop > 0)}
-            className="max-h-[70vh] overflow-y-auto"
-            role="list"
-            aria-label={`${filtered.length} intent${filtered.length === 1 ? "" : "s"}`}
-          >
-            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const item = filtered[virtualRow.index];
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/explore/${item.id}`}
-                    role="listitem"
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: virtualRow.size - ROW_GAP,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                    className="flex items-center gap-4 p-4 bg-vx-surface/40 rounded-lg border border-vx-line
-                               hover:border-vx-border transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-vx-text truncate">
-                        {item.srcAmount} <HighlightedText text={item.srcToken} terms={parsedSearch.terms} /> →{" "}
-                        <HighlightedText text={item.dstToken} terms={parsedSearch.terms} />
-                      </div>
-                      <div className="text-xs text-vx-muted capitalize">
-                        <HighlightedText text={item.srcChain} terms={parsedSearch.terms} /> · via{" "}
-                        <HighlightedText text={item.solver} terms={parsedSearch.terms} />
-                      </div>
-                    </div>
-                    <IntentStatusBadge status={item.status} />
-                    <span className="text-xs text-vx-muted num flex-shrink-0 w-16 text-right">
-                      {timeAgo(item.createdAt)}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+          <VirtualList
+            items={filtered}
+            getKey={getIntentKey}
+            estimateSize={ROW_ESTIMATE}
+            label={t("explore.list.label", { count: String(filtered.length) })}
+            restoreKey={restoreKey}
+            resetKey={resetKey}
+            onActivate={(item) => router.push(`/explore/${item.id}`)}
+            renderRow={(item) => (
+              <Link
+                href={`/explore/${item.id}`}
+                tabIndex={-1}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 bg-vx-surface/40 rounded-lg border border-vx-line
+                            hover:border-vx-border transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-vx-text break-words">
+                    {item.srcAmount} {item.srcToken} → {item.dstToken}
+                  </div>
+                  <div className="text-xs text-vx-muted capitalize break-words">
+                    {item.srcChain} · via {sanitizeDisplayText(item.solver)}
+                  </div>
+                </div>
+                <IntentStatusBadge status={item.status} />
+                <span className="text-xs text-vx-muted num flex-shrink-0 w-16 text-right">
+                  {timeAgo(item.createdAt)}
+                </span>
+              </Link>
+            )}
+          />
         )}
         </div>
       </main>

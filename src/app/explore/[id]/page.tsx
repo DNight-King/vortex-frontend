@@ -23,6 +23,17 @@ import { buildTimeline } from "@/lib/timeline";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
 import { pushRecentIntent } from "@/lib/commands/recents";
+
+const NETWORK = process.env["NEXT_PUBLIC_NETWORK"] ?? "testnet";
+
+const truncate = (value: string) => truncateAddress(value, { prefix: 6, suffix: 6 });
+
+function deadlineLabel(deadline: string) {
+  const msRemaining = new Date(deadline).getTime() - Date.now();
+  if (msRemaining <= 0) retu
+import { timeAgo } from "@/lib/time";
+import { truncateAddress } from "@/lib/stellarAddress";
+import { pushRecentIntent } from "@/lib/commands/recents";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 
 const NETWORK = process.env["NEXT_PUBLIC_NETWORK"] ?? "testnet";
@@ -44,6 +55,7 @@ export default function IntentDetailPage({
 }: {
   params: { id: string };
 }) {
+  const { t } = useTranslation();
   const { intent, isLoading, error, isLive } = useIntent(params.id);
   const { copy } = useCopyToClipboard();
   const [txHashCopied, setTxHashCopied] = useState(false);
@@ -96,6 +108,15 @@ export default function IntentDetailPage({
               >
                 Print / Save as PDF
               </button>
+            )}
+            {intent?.status === "filled" && (
+              <Link
+                href={`/explore/${params.id}/receipt`}
+                className="print:hidden text-xs px-3 py-1.5 rounded-lg border border-vx-border text-vx-muted
+                            hover:text-vx-text hover:border-vx-sage/40 transition-colors"
+              >
+                {t("receipt.view")}
+              </Link>
             )}
           </div>
         </div>
