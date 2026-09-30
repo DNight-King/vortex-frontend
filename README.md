@@ -25,6 +25,9 @@ registrations. Part of the multi-repo Vortex stack — see also
 | `/explore` | `src/app/explore/page.tsx` | Browse all intents with status/chain filters, sorting, and pagination |
 | `/explore/[id]` | `src/app/explore/[id]/page.tsx` | Single intent detail, with a settlement tx link once filled |
 | `/solve` | `src/app/solve/page.tsx` | Solver leaderboard (sortable, time windows, filters, CSV), live open-intents board, and the solver registration wizard. State is URL-synced (`?tab=`, `?window=`, `?sort=`, `?step=` …) |
+| `/solve/[address]` | `src/app/solve/[address]/page.tsx` | Solver profile: performance charts, coverage, fill history, penalties |
+| `/solve/dashboard` | `src/app/solve/dashboard/page.tsx` | "My solver" dashboard for the connected solver wallet |
+| `/solve/compare` | `src/app/solve/compare/page.tsx` | Side-by-side comparison of up to three solvers (`?a=&b=&c=`) |
 | `/api/verify-solver` | `src/app/api/verify-solver/route.ts` | Server-side, SSRF-guarded stellar.toml fetch for solver home-domain badges (display only; see `docs/security-audit.md`) |
 | `/api/account-status` | `src/app/api/account-status/route.ts` | Same-origin Horizon proxy used by the registration wizard's "account funded" check |
 | `/governance` | `src/app/governance/page.tsx` | Governance proposals list and voting overview |
@@ -85,6 +88,7 @@ npm run dev    # http://localhost:3000
 | `NEXT_PUBLIC_NETWORK`                  | Stellar network: `testnet`, `futurenet`, or `mainnet`         |
 | `NEXT_PUBLIC_SETTLEMENT_CONTRACT`      | Settlement contract ID from `vortex-contract` deployment      |
 | `NEXT_PUBLIC_SOLVER_REGISTRY_CONTRACT` | Solver registry contract ID from `vortex-contract` deployment |
+| `NEXT_PUBLIC_SLASH_EVENTS_MOCK`        | Optional. `true` serves mock penalty events until the relay exposes `/slash-events` |
 
 ---
 

@@ -21,6 +21,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { formatCurrency, formatUsdCompact, localeToBcp47 } from "@/lib/format";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 import Link from "next/link";
+import { MAX_COMPARE, compareHref } from "@/lib/solverStats";
 
 const TABS = ["leaderboard", "intents", "register"] as const;
 type Tab = (typeof TABS)[number];
@@ -66,6 +67,19 @@ export default function SolvePageClient() {
     typeof window !== "undefined" ? readDismissed() : false,
   );
   const { solvers, isLoading: solversLoading, error: solversError } = useSolvers();
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+  const [compareNotice, setCompareNotice] = useState("");
+  const toggleCompare = (address: string) => {
+    if (compareSelection.includes(address)) {
+      setCompareSelection(compareSelection.filter((a) => a !== address));
+      setCompareNotice("");
+    } else if (compareSelection.length >= MAX_COMPARE) {
+      setCompareNotice(t("compare.limit", { max: MAX_COMPARE }));
+    } else {
+      setCompareSelection([...compareSelection, address]);
+      setCompareNotice("");
+    }
+  };
   const { intents: openIntents, isLoading: intentsLoading, error: intentsError } = useOpenIntents();
   const { accept, acceptingId, error: acceptError } = useAcceptIntent();
   const { register, status: regStatus, error: regError, reset } =
@@ -288,10 +302,21 @@ export default function SolvePageClient() {
             ) : (
               <div className="divide-y divide-vx-line">
                 {sortedSolvers.map((s, i) => (
+                  <div key={s.address} className="flex items-start">
+                  <label className="pl-3 sm:pl-5 pt-5 flex-shrink-0">
+                    <span className="sr-only">
+                      {t("compare.select", { name: sanitizeDisplayText(s.name) })}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={compareSelection.includes(s.address)}
+                      onChange={() => toggleCompare(s.address)}
+                      className="focus:outline-none focus-visible:ring-2 focus-visible:ring-vx-sage"
+                    />
+                  </label>
                   <Link
-                    key={s.address}
                     href={`/solve/${s.address}`}
-                    className="block px-3 sm:px-5 py-4 hover:bg-vx-surface/30 transition-colors"
+                    className="block flex-1 min-w-0 px-3 sm:px-5 py-4 hover:bg-vx-surface/30 transition-colors"
                   >
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start gap-3 min-w-0">
@@ -355,7 +380,20 @@ export default function SolvePageClient() {
                       </div>
                     </div>
                   </Link>
+                  </div>
                 ))}
+              </div>
+            )}
+            <p className="sr-only" aria-live="polite">{compareNotice}</p>
+            {compareSelection.length > 0 && (
+              <div className="sticky bottom-0 flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-t border-vx-border bg-vx-ink/95">
+                <span className="text-xs text-vx-muted" aria-hidden="true">{compareNotice}</span>
+                <Link
+                  href={compareHref(compareSelection)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-vx-sage-bg text-vx-sage border border-vx-sage/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-vx-sage"
+                >
+                  {t("compare.action", { count: compareSelection.length })}
+                </Link>
               </div>
             )}
           </div>
