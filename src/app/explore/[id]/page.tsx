@@ -5,13 +5,21 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
 import { IntentTracker } from "@/components/IntentTracker";
+import { JsonInspector } from "@/components/JsonInspector";
 import { Nav } from "@/components/Nav";
 import { SkeletonDetailCard } from "@/components/Skeleton";
+import { Timeline } from "@/components/Timeline";
 import { useOnChainStatus } from "@/hooks/useOnChainStatus";
 import { explorerTransactionUrl } from "@/lib/chain/explorerLinks";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIntent } from "@/hooks/useIntent";
+import { useTranslation } from "@/lib/i18n/I18nProvider";
+import { explorerUrl } from "@/lib/explorerLinks";
+import { buildIntentSummary, intentToJson, redactForExport } from "@/lib/intentExport";
+import { isIntentDetail } from "@/lib/schemas";
+import { sanitizeDisplayText } from "@/lib/textSafety";
+import { buildTimeline } from "@/lib/timeline";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
 import { pushRecentIntent } from "@/lib/commands/recents";
@@ -37,11 +45,15 @@ export default function IntentDetailPage({
   params: { id: string };
 }) {
   const { intent, isLoading, error, isLive } = useIntent(params.id);
-
-  // Only record intents that actually resolved, so recents skip deleted ids.
-  useEffect(() => {
-    if (intent) pushRecentIntent(intent.id);
-  }, [intent]);
+  const { copy } = useCopyToClipboard();
+  const [txHashCopied, setTxHashCopied] = useState(false);
+  const { t } = useTranslation();
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const timeline = useMemo(() => (intent ? buildTimeline(intent) : []), [intent]);
+  const copyExport = async (text: string) => {
+    const ok = await copy(text);
+    setCopyStatus(ok ? t("intentDetail.copy.done") : t("intentDetail.copy.failed"));
+  };
 
   // Only record intents that actually resolved, so recents skip deleted ids.
   useEffect(() => {
@@ -123,6 +135,28 @@ export default function IntentDetailPage({
               <IntentStatusBadge status={intent.status} verified={chainStatus.state === "confirmed"} />
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => void copyExport(buildIntentSummary(intent))}
+                className="text-xs px-3 py-1.5 rounded-lg border border-vx-border text-vx-muted hover:text-vx-text hover:border-vx-sage/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-vx-sage"
+              >
+                {t("intentDetail.copy.details")}
+              </button>
+              {isIntentDetail(intent) && (
+                <button
+                  type="button"
+                  onClick={() => void copyExport(intentToJson(intent))}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-vx-border text-vx-muted hover:text-vx-text hover:border-vx-sage/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-vx-sage"
+                >
+                  {t("intentDetail.copy.json")}
+                </button>
+              )}
+              <span role="status" aria-live="polite" className="text-xs text-vx-muted">
+                {copyStatus}
+              </span>
+            </div>
+
             {!isSettled && (
               <p
                 role="note"
@@ -161,6 +195,17 @@ export default function IntentDetailPage({
                     value={intent.dstAddress}
                     label="Copy destination address"
                   />
+                  {explorerUrl("account", intent.dstAddress) && (
+                    <a
+                      href={explorerUrl("account", intent.dstAddress) ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-vx-sage hover:underline print:hidden"
+                      aria-label={t("intentDetail.viewAccount")}
+                    >
+                      ↗
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -186,6 +231,15 @@ export default function IntentDetailPage({
               </div>
             )}
             {intent.txHash && <section aria-label="On-chain verification" className="rounded-lg border border-vx-border p-4"><div className="eyebrow">On-chain verification</div><p className="mt-1 text-sm">{chainStatus.state}{chainStatus.ledger ? ` at ledger ${chainStatus.ledger}` : ""}{chainStatus.resultCode ? ` (${sanitizeDisplayText(chainStatus.resultCode)})` : ""}</p>{chainStatus.state === "confirmed" && intent.status !== "filled" && <p role="alert" className="text-xs text-amber-300">Relay and on-chain statuses disagree.</p>}<a className="text-xs text-vx-sage" href={explorerTransactionUrl(intent.txHash)} target="_blank" rel="noreferrer">View verified transaction →</a></section>}
+
+            <section className="pt-2 border-t border-vx-line">
+              <h2 className="eyebrow mb-3">{t("timeline.title")}</h2>
+              <Timeline steps={timeline} />
+            </section>
+
+            <section className="pt-2 border-t border-vx-line print:hidden">
+              <JsonInspector value={redactForExport(intent)} />
+            </section>
           </div>
         )}
       </main>

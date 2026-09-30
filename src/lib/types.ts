@@ -56,6 +56,11 @@ export type IntentDetail = FeedItem & {
   dstAddress: string;
   deadline: string;
   txHash?: string;
+  /** Lifecycle timestamps (ISO). Optional: older relay versions omit them. */
+  acceptedAt?: string;
+  submittedAt?: string;
+  filledAt?: string;
+  failedAt?: string;
 };
 
 export type OpenIntent = {

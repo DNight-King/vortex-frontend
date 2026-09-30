@@ -245,10 +245,51 @@ describe("IntentDetailPage", () => {
     });
     render(<IntentDetailPage params={{ id: "intent-1" }} />);
 
+    const timeline = screen.getByRole("list", { name: "Intent timeline" });
+    expect(timeline).toHaveTextContent("Created");
+    expect(timeline).toHaveTextContent("Filled");
+    expect(screen.getByText("Raw data")).toBeInTheDocument();
+  });
+
+  it("copies a redacted summary and the validated JSON", async () => {
+    const user = userEvent.setup();
+    const writ
+      isLoading: false,
+      error: undefined,
+    });
+    render(<IntentDetailPage params={{ id: "intent-1" }} />);
+
     // CopyButton renders a button with "Copy" — verifies the inline manual
     // copy state machine is gone and the component is used correctly.
     const copyButtons = screen.getAllByRole("button", { name: /copy/i });
     // One for dst address, one for tx hash
     expect(copyButtons.length).toBeGreaterThanOrEqual(2);
+      isLoading: false,
+      error: undefined,
+    });
+    render(<IntentDetailPage params={{ id: "intent-1" }} />);
+
+    const timeline = screen.getByRole("list", { name: "Intent timeline" });
+    expect(timeline).toHaveTextContent("Created");
+    expect(timeline).toHaveTextContent("Filled");
+    expect(screen.getByText("Raw data")).toBeInTheDocument();
+  });
+
+  it("copies a redacted summary and the validated JSON", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    useIntentMock.mockReturnValue({
+      intent: { ...detail, signedXdr: "SECRETXDR" },
+      isLoading: false,
+      error: undefined,
+    });
+    render(<IntentDetailPage params={{ id: "intent-1" }} />);
+
+    await user.click(screen.getByRole("button", { name: "Copy details" }));
+    await user.click(screen.getByRole("button", { name: "Copy JSON" }));
+    const copied = writeText.mock.calls.map(([text]) => String(text)).join("\n");
+    expect(copied).toContain("Intent: intent-1");
+    expect(copied).toContain('"id": "intent-1"');
+    expect(copied).not.toContain("SECRETXDR");
   });
 });
