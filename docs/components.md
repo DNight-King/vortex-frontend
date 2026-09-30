@@ -114,6 +114,16 @@ import { Tooltip } from "@/components/Tooltip";
   SwapCard's quote details panel. See `Tooltip.stories.tsx` for interactive examples.
 
 
+## Live feed buffering (`useBufferedFeed`, `LiveFeedControls`)
+
+Home `ActivityFeed`, Explore and My Intents stop inserting rows while the user is reading (WCAG 2.2.2).
+`useFeedPause(feedId)` pauses when the pointer or focus is inside the list, when it is scrolled away from the
+top, or when the user presses the Live/Paused toggle (persisted per feed under `vortex-feed-paused:<feedId>`).
+`useBufferedFeed(items, { isPaused })` returns `{ visible, pending, overflow, flush }`: already-visible items
+keep updating in place (status changes) without reordering, new ones are queued (count capped at 500, shown
+as "500+"). The "N new intents" pill flushes the queue and moves focus to the list; counts are announced
+politely at most every 5 s. See the `BufferedLiveUpdates` story.
+
 ## `DataTable`
 
 Generic accessible table (`src/components/DataTable.tsx`), first used by the solver leaderboard.

@@ -15,6 +15,8 @@ import { timeAgo } from "@/lib/time";
 import { CHAINS } from "@/lib/marketData";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 import type { IntentStatus } from "@/lib/types";
+import { useBufferedFeed, useFeedPause } from "@/hooks/useBufferedFeed";
+import { LiveFeedControls } from "@/components/LiveFeedControls";
 
 const STATUS_OPTIONS: Array<IntentStatus | "all"> = [
   "all",
@@ -41,7 +43,11 @@ function readSort(value: string | null): SortOption {
 
 export default function ExplorePageClient() {
   const { t } = useTranslation();
-  const { intents, isLoading, error, isLive } = useLiveIntents();
+  const { intents: liveIntents, isLoading, error, isLive } = useLiveIntents();
+  const pause = useFeedPause("explore");
+  const { visible: intents, pending, overflow, flush } = useBufferedFeed(liveIntents, {
+    isPaused: pause.isPaused,
+  });
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -224,12 +230,24 @@ export default function ExplorePageClient() {
             </button>
           )}
 
+          <LiveFeedControls
+            userPaused={pause.userPaused}
+            onToggle={pause.toggle}
+            pending={pending}
+            overflow={overflow}
+            onFlush={() => {
+              flush();
+              pause.containerRef.current?.focus();
+            }}
+          />
+
           <span className="text-xs text-vx-muted ml-auto" aria-live="polite" aria-atomic="true">
             {filtered.length} intent{filtered.length === 1 ? "" : "s"}
           </span>
         </div>
 
         {/* Results */}
+        <div className="focus:outline-none" {...pause.containerProps}>
         {isLoading && intents.length === 0 ? (
           <IntentListSkeleton count={4} />
         ) : error ? (
@@ -254,6 +272,7 @@ export default function ExplorePageClient() {
         ) : (
           <div
             ref={scrollRef}
+            onScroll={(event) => pause.setScrolledAway(event.currentTarget.scrollTop > 0)}
             className="max-h-[70vh] overflow-y-auto"
             role="list"
             aria-label={`${filtered.length} intent${filtered.length === 1 ? "" : "s"}`}
@@ -295,6 +314,7 @@ export default function ExplorePageClient() {
             </div>
           </div>
         )}
+        </div>
       </main>
 
       <Footer />

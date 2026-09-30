@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
@@ -13,6 +14,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIntent } from "@/hooks/useIntent";
 import { timeAgo } from "@/lib/time";
 import { truncateAddress } from "@/lib/stellarAddress";
+import { pushRecentIntent } from "@/lib/commands/recents";
 import { sanitizeDisplayText } from "@/lib/textSafety";
 
 const NETWORK = process.env["NEXT_PUBLIC_NETWORK"] ?? "testnet";
@@ -36,6 +38,16 @@ export default function IntentDetailPage({
 }) {
   const { intent, isLoading, error, isLive } = useIntent(params.id);
 
+  // Only record intents that actually resolved, so recents skip deleted ids.
+  useEffect(() => {
+    if (intent) pushRecentIntent(intent.id);
+  }, [intent]);
+
+  const isExpired = useMemo(() => {
+    if (!intent || intent.status !== "pending" || !intent.deadline)
+      return false;
+    return new Date(intent.deadline).getTime() <= Date.now();
+  }, [intent]);
   const isSettled = intent?.status === "filled";
   const chainStatus = useOnChainStatus(intent?.txHash);
 
