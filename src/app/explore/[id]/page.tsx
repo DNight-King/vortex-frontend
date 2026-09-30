@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { IntentStatusBadge } from "@/components/IntentStatusBadge";
+import { IntentTracker } from "@/components/IntentTracker";
 import { Nav } from "@/components/Nav";
 import { SkeletonDetailCard } from "@/components/Skeleton";
 import { useOnChainStatus } from "@/hooks/useOnChainStatus";
@@ -115,6 +116,10 @@ export default function IntentDetailPage({
                 completed-swap record.
               </p>
             )}
+
+            <div className="print:hidden">
+              <IntentTracker intentId={intent.id} hideDetailsLink />
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               {[

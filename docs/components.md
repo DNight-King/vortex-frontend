@@ -114,6 +114,34 @@ import { Tooltip } from "@/components/Tooltip";
   SwapCard's quote details panel. See `Tooltip.stories.tsx` for interactive examples.
 
 
+## `IntentTracker`
+
+[`src/components/IntentTracker.tsx`](../src/components/IntentTracker.tsx) shows an
+intent's journey after submission: **submitted → accepted → filled / failed /
+expired**, with step timestamps, a live deadline countdown and localised
+next-step guidance for each state.
+
+- **Where:** under the swap card on `/` after a submit (the intent id is
+  persisted in `localStorage` under `vortex:lastSubmittedIntent`, so a reload
+  mid-flight keeps tracking; terminal trackers can be dismissed) and on
+  `/explore/[id]`.
+- **Data:** `useIntentLifecycle(id)` merges the REST detail (`/intents/:id`)
+  with WebSocket updates from the shared realtime connection, filtered by id.
+  Status never regresses on out-of-order frames. When the socket is not open
+  it polls with backoff (5 s doubling to 60 s) until the intent is terminal.
+- **States:** `expired` is derived client-side (non-terminal past its
+  deadline) and is distinct from `failed`. The API exposes only `createdAt`,
+  so accept/fill timestamps are the times the client observed them and are
+  omitted when unknown. Derivation is the pure `deriveTrackerSteps(intent, now)`
+  in [`src/lib/intentLifecycle.ts`](../src/lib/intentLifecycle.ts).
+- **Retry:** failed/expired intents offer "Retry this swap", which links to
+  `/?srcChain=&srcToken=&amount=&dstToken=` to pre-fill `SwapCard`. The
+  destination address is never carried over (existing policy).
+- **Cancel — known gap:** neither `src/lib/api.ts` nor the relay contract
+  exposes a cancel endpoint today, so no Cancel action is shown. When one
+  lands, add it behind a feature flag with a confirmation dialog and the
+  standard XDR review step. Refund execution is out of scope.
+
 ## `FeedbackForm`
 
 [`src/components/FeedbackForm.tsx`](../src/components/FeedbackForm.tsx)

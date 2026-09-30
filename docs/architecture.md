@@ -13,10 +13,10 @@ list) follow the same two-source pattern:
 1. **REST snapshot** — an [SWR](https://swr.vercel.app/) hook fetches the current
    state from the API and provides the initial render plus periodic polling as a
    fallback.
-2. **WebSocket layer** — [`useWebSocket`](../src/hooks/useWebSocket.ts) opens a
-   single JSON-over-WebSocket subscription (exponential backoff with jitter,
-   capped at 10 attempts) and each new message is merged on top of the REST
-   snapshot, newest first, deduped by `id`.
+2. **WebSocket layer** — [`useWebSocket`](../src/hooks/useWebSocket.ts) subscribes
+   to the shared realtime connection (see [Realtime connection manager](#realtime-connection-manager))
+   and each new message is merged on top of the REST snapshot, newest first,
+   deduped by `id`.
 
 This is implemented twice, at two different sizes:
 
@@ -37,6 +37,37 @@ The WebSocket URL for all of these is
 `process.env.NEXT_PUBLIC_WS_URL`, and `useWebSocket(null)` is the deliberate way
 to stay idle (e.g. when that env var is unset) — it tears down any existing
 connection and reports `status: "closed"` without attempting to connect.
+
+## Realtime connection manager
+
+All WebSocket traffic goes through one module singleton,
+[`src/lib/realtime/manager.ts`](../src/lib/realtime/manager.ts), so a tab holds
+**one socket per URL** no matter how many hooks are mounted
+(`useIntentFeed`, `useLiveIntents`, `useMyLiveIntents`, `useIntentStatusWatcher`).
+
+- **Layers:** [`WebSocketClient`](../src/lib/realtime/webSocketClient.ts)
+  (framework-agnostic state machine: `idle | connecting | open | backoff |
+  unavailable | closed`) → `manager.ts` (ref counting, topic fan-out) →
+  [`useRealtimeTopic` / `useRealtimeStatus`](../src/hooks/useRealtime.ts) →
+  `useWebSocket` (back-compat `{ status, lastMessage, reconnect }`).
+- **Ref counting:** the socket opens on the first `subscribe()`/`watchStatus()`
+  and closes `LINGER_MS` (2 s) after the last handle is released, so route
+  changes don't thrash the connection.
+- **Topics:** frames with a string `topic` field are routed to that topic; frames
+  without one go to `"intents"`. Subscribers may pass a client-side `filter`
+  (e.g. by address). A throwing subscriber is logged via `secureLogger` and
+  never breaks fan-out to the others.
+- **Optional subscribe frames:** with `NEXT_PUBLIC_WS_SUBSCRIBE_FRAMES=true` the
+  manager sends `{"type":"subscribe","topic":…}` when a topic gains its first
+  subscriber (and on every reconnect) and `{"type":"unsubscribe",…}` when it
+  loses its last. Off by default until the relay supports it.
+- **Status:** `useRealtimeStatus(url)` is the single source for the
+  "Live/Polling" indicators (`isLive` in the feed hooks).
+- **SSR / hot reload:** `subscribe()` is a no-op on the server; `resetRealtime()`
+  closes everything (used by tests).
+- **Debugging:** in development, append `?debug=realtime` to any URL to show an
+  overlay ([`RealtimeDebugOverlay`](../src/components/RealtimeDebugOverlay.tsx))
+  listing connections, their state and subscriber counts per topic.
 
 ## SWR's role
 
