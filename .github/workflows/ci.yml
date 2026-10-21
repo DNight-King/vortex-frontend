@@ -92,6 +92,7 @@ jobs:
               body: report,
             });
       - run: npm ci
+      - run: npm run check:actionlint
       - run: npm run check:manifest
       - run: npm run check:env
       - run: npm run check:i18n
