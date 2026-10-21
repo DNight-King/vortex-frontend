@@ -329,7 +329,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           GITHUB_ACTOR: ${{ github.actor }}
       - name: Lint lockfile
-        run: npm ls --all > /dev/null
+        run: node scripts/lint-lockfile.mjs
       - name: Generate SBOM
         run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
